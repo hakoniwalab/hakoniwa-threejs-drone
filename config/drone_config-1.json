@@ -1,0 +1,65 @@
+{
+  "environments": [
+    {
+      "name": "town",
+      "model": "/assets/models/medieval_town.glb",
+      "pos": [0, 0, 0],
+      "hpr": [0, 90, 180],
+      "scale": 1.0,
+      "cache": true,
+      "copy": false
+    }
+  ],
+  "drones": [
+    {
+      "name": "Drone",
+      "model": "/assets/models/drone.glb",
+      "pos": [0, 0, 0.01],
+      "hpr": [180, 180, 0],
+      "rotors": [
+        {
+          "name": "drone_rotor1",
+          "model": "/assets/models/prop-1.glb",
+          "pos": [0.062, 0.065, -0.01]
+        },
+        {
+          "name": "drone_rotor2",
+          "model": "/assets/models/prop-1.glb",
+          "pos": [0.062, -0.025, -0.01]
+        },
+        {
+          "name": "drone_rotor3",
+          "model": "/assets/models/prop-2.glb",
+          "pos": [-0.062, -0.025, -0.01]
+        },
+        {
+          "name": "drone_rotor4",
+          "model": "/assets/models/prop-1.glb",
+          "pos": [-0.062, 0.065, -0.01]
+        }
+      ],
+      "cameras": [
+        {
+          "name": "front_camera",
+          "pos": [0.0, 0.1, 0.0],
+          "hpr": [0, 0, 0],
+          "fov": 90,
+          "near": 0.015,
+          "far": 1000,
+          "window": {
+            "x": 0.69,
+            "y": 0.69,
+            "width": 0.3,
+            "height": 0.3
+          },
+          "sort": 20,
+          "model": {
+            "model_path": "/assets/models/camera.glb",
+            "pos": [0.0, 0.0, 0.0],
+            "hpr": [0, 0, 0]
+          }
+        }
+      ]
+    }
+  ]
+}

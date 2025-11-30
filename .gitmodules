@@ -1,0 +1,3 @@
+[submodule "thirdparty/hakoniwa-pdu-javascript"]
+	path = thirdparty/hakoniwa-pdu-javascript
+	url = https://github.com/hakoniwalab/hakoniwa-pdu-javascript.git
