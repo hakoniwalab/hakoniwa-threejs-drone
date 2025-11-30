@@ -4,12 +4,19 @@
       "name": "town",
       "model": "/assets/models/medieval_town.glb",
       "pos": [0, 0, 0],
-      "hpr": [0, 90, 180],
+      "hpr": [0, 0, 0],
       "scale": 1.0,
       "cache": true,
       "copy": false
     }
   ],
+  "main_camera": {
+    "fov": 90,
+    "near": 1.0,
+    "far": 200000,
+    "position": [ 50.0, 50.0, 50.0 ],
+    "target":   [ 0.0, 0.0, 0.0 ]
+  },
   "drones": [
     {
       "name": "Drone",
