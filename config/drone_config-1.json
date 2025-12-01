@@ -1,5 +1,12 @@
 {
   "environments": [
+    {
+      "name": "town",
+      "model": "/assets/models/medieval_town.glb",
+      "scale": 0.0024,
+      "pos": [0, 0, 0],
+      "hpr": [0, 0, 180]
+    }
   ],
   "main_camera": {
     "fov": 90,

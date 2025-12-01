@@ -109,8 +109,12 @@ async function buildEnvironment(envCfg) {
 
         ent.setAttachment(m);
 
-        if (envCfg.pos) { ent.setPositionRos(envCfg.pos); }
-        if (envCfg.hpr) { ent.setRpyRosDeg(envCfg.hpr); }
+        //scale
+        if (envCfg.scale) {
+          m.scale.set(envCfg.scale, envCfg.scale, envCfg.scale);
+        }
+        ent.setPositionRos(envCfg.pos);
+        ent.setRpyRosDeg(envCfg.hpr);
 
         scene.add(ent.object3d);
         resolve(ent);
@@ -440,21 +444,6 @@ function animate() {
   }
   updateDebugUI();
 
-  // --- 追従カメラ更新 ---
-  if (followTargetEnt && followOffsetThree && orbitCam) {
-    const targetWorld = followTargetEnt.getWorldPosition(tmpVec3.clone());
-    const camPos = targetWorld.clone().add(followOffsetThree);
-
-    // OrbitCamera の実装に合わせてここは調整：
-    // 典型的にはこういう感じ：
-    orbitCam.camera.position.copy(camPos);
-    if (orbitCam.controls) {
-      orbitCam.controls.target.copy(targetWorld);
-      orbitCam.controls.update();
-    } else {
-      orbitCam.camera.lookAt(targetWorld);
-    }
-  }
 
   if (orbitCam) {
     orbitCam.update(dt);
