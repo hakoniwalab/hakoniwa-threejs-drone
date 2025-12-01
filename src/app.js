@@ -134,7 +134,7 @@ async function buildDrone(droneCfg) {
 
   const m = await new Promise((resolve, reject) => {
     loader.load(
-      droneCfg.model,
+      droneCfg.model.model_path,
       (gltf) => resolve(gltf.scene),
       undefined,
       reject
@@ -142,9 +142,9 @@ async function buildDrone(droneCfg) {
   });
   const ent_model = new RenderEntity(droneCfg.name + "_model");
   ent_model.setAttachment(m);
-  ent_model.setPositionRos(droneCfg.model_pos);
-  ent_model.setRpyRosDeg(droneCfg.model_hpr);
-  ent.addChild(ent_model);
+  ent_model.setPositionRos(droneCfg.model.pos);
+  ent_model.setRpyRosDeg(droneCfg.model.hpr);
+  ent.setModel(ent_model);
   if (droneCfg.pos) { ent.setPositionRos(droneCfg.pos); }
   if (droneCfg.hpr) { ent.setRpyRosDeg(droneCfg.hpr); }
 
@@ -154,13 +154,15 @@ async function buildDrone(droneCfg) {
       const rotorEnt = new RenderEntity(r.name);
       const rotorEntModel = new RenderEntity(r.name + "_model");
 
-      loader.load(r.model, (gltf) => {
+      loader.load(r.model.model_path, (gltf) => {
         rotorEntModel.setAttachment(gltf.scene);
       });
-      rotorEntModel.setRpyRosDeg(r.model_hpr);
-      rotorEnt.addChild(rotorEntModel);
+      rotorEntModel.setRpyRosDeg(r.model.hpr);
+      rotorEntModel.setPositionRos(r.model.pos);
+      rotorEnt.setModel(rotorEntModel);
 
       rotorEnt.setPositionRos(r.pos);
+      rotorEnt.setRpyRosDeg(r.hpr);
       ent.addChild(rotorEnt);
 
       //for debug

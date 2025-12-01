@@ -20,33 +20,51 @@
       "name": "Drone",
       "pos": [0.0, 0.0, 0.0],
       "hpr": [0.0, 0.0, 0.0],
-      "model": "/assets/models/drone.glb",
-      "model_pos": [0, 0, 0.01],
-      "model_hpr": [0, -90, 180],
+      "model": {
+        "model_path": "/assets/models/drone.glb",
+        "pos": [0, 0, 0.01],
+        "hpr": [0, -90, 180]
+      },
       "rotors": [
         {
           "name": "drone_rotor1",
-          "model": "/assets/models/prop-2.glb",
+          "model": {
+            "model_path": "/assets/models/prop-2.glb",
+            "pos": [0.0, 0.0, 0.0],
+            "hpr": [0, -90, 0]
+          },
           "pos": [0.065, 0.055, 0.0],
-          "model_hpr": [0, -90, 0]
+          "hpr": [0, 0, 0]
         },
         {
           "name": "drone_rotor2",
-          "model": "/assets/models/prop-1.glb",
+          "model": {
+            "model_path": "/assets/models/prop-1.glb",
+            "pos": [0.0, 0.0, 0.0],
+            "hpr": [0, -90, 0]
+          },
           "pos": [0.065, -0.055, 0.0],
-          "model_hpr": [0, -90, 0]
+          "hpr": [0, 0, 0]
         },
         {
           "name": "drone_rotor3",
-          "model": "/assets/models/prop-1.glb",
+          "model": {
+            "model_path": "/assets/models/prop-1.glb",
+            "pos": [0.0, 0.0, 0.0],
+            "hpr": [0, -90, 0]
+          },
           "pos": [-0.025, -0.055, 0.0],
-          "model_hpr": [0, -90, 0]
+          "hpr": [0, 0, 0]
         },
         {
           "name": "drone_rotor4",
-          "model": "/assets/models/prop-1.glb",
+          "model": {
+            "model_path": "/assets/models/prop-1.glb",
+            "pos": [0.0, 0.0, 0.0],
+            "hpr": [0, -90, 0]
+          },
           "pos": [-0.025, 0.055, 0.0],
-          "model_hpr": [0, -90, 0]
+          "hpr": [0, 0, 0]
         }
       ],
       "cameras": [

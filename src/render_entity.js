@@ -10,6 +10,8 @@ export class RenderEntity {
     // 見た目 (Mesh/Group/Light/Camera etc.) はすべて委譲でぶら下げる
     this._attached = null;
 
+    this.model = null;
+
     // 任意に使えるメタ情報（用途: "rotor" とか "camera" とか）
     this.tag = null;
     // ROS 座標系での絶対位置・姿勢を保持
@@ -55,6 +57,10 @@ export class RenderEntity {
    */
   addChild(entity) {
     this.object3d.add(entity.object3d);
+  }
+  setModel(model) {
+    this.model = model;
+    this.addChild(model);
   }
 
   /**
