@@ -6,6 +6,7 @@ import { createGltfLoader, loadConfig } from "./loader.js";
 import { OrbitCamera } from "./orbit_camera.js";
 import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_Twist } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
+import { pduToJs_HakoHilActuatorControls } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
 
 console.log("[Hakoniwa] app.js loaded");
 const clock = new THREE.Clock();
@@ -14,6 +15,10 @@ const container = document.getElementById("app");
 const loader = createGltfLoader(THREE);
 let orbitCam = null;
 let latestPduPose = null;   // { rosPos: [x,y,z], rosRpyDeg: [r,p,y] }
+let rotorSpeed = 0;                // [rad/sec] 実際に使う回転速度
+let rotorSpeedHistory = [];        // 過去1秒分の { t, speed } の配列
+const MOTOR_CHANNEL_INDICES = [0, 1, 2, 3]; // ch1〜ch4 をモータとみなす
+
 let pduConnected = false;
 let followTargetEnt = null;       // 追従する RenderEntity（Drone）
 let followOffsetThree = null;     // Three 座標系のオフセット
@@ -35,7 +40,6 @@ scene.background = new THREE.Color(0x202020);
 let droneRoot = null;            // ドローンのルート RenderEntity
 const rotorEntities = [];          // プロペラ用 RenderEntity（またはその object3d）
 const keyState = {};             // キーボード状態
-let rotorSpeed = 0;              // [rad/sec] 回転速度（+で正転, -で逆転）
 
 // ★ デバッグUI要素
 const debugPanel = document.createElement('div');
@@ -202,8 +206,10 @@ async function startPduPolling() {
 
   // pos PDU を declare（Leaflet版と同じ）
   Hakoniwa.withPdu(async (pdu) => {
-    const ret = await pdu.declare_pdu_for_read(DRONE_ID, "pos");
+    let ret = await pdu.declare_pdu_for_read(DRONE_ID, "pos");
     console.log(`[HakoniwaThree] declare ${DRONE_ID}/pos:`, ret);
+    ret = await pdu.declare_pdu_for_read(DRONE_ID, "motor");
+    console.log(`[HakoniwaThree] declare ${DRONE_ID}/motor:`, ret);
   });
 
   // ★ ポーリング開始（100msごと）
@@ -232,7 +238,50 @@ async function startPduPolling() {
           rad2deg(yaw),
         ],
       };
-    });
+      // --- PWM duty PDU も読む ---
+      const buf_motor = pdu.read_pdu_raw_data(DRONE_ID, "motor");
+      if (!buf_motor) return;
+      // PWM duty PDU も読む
+      const msg = pduToJs_HakoHilActuatorControls(buf_motor);
+      const controls = msg.controls; // [ch1, ch2, ..., ch16]
+      if (!controls || controls.length === 0) return;
+
+      // 今回サンプルとしてモータ1〜4の duty を平均する
+      let sumDuty = 0;
+      let count = 0;
+      for (const idx of MOTOR_CHANNEL_INDICES) {
+        if (idx < controls.length) {
+          sumDuty += controls[idx];
+          count++;
+        }
+      }
+      if (count === 0) return;
+
+      const avgDutyNow = sumDuty / count;
+
+      // duty → 回転速度（仮変換）
+      const rotorSpeedNow = avgDutyNow * 40000.0; // 好きなスケールに調整OK
+
+      // --- 1秒分の履歴を作る ---
+      const nowSec = performance.now() / 1000.0;
+      rotorSpeedHistory.push({ t: nowSec, speed: rotorSpeedNow });
+
+      // 1秒より古いものを捨てる
+      const windowSec = 1.0;
+      while (rotorSpeedHistory.length > 0 &&
+            nowSec - rotorSpeedHistory[0].t > windowSec) {
+        rotorSpeedHistory.shift();
+      }
+
+      // 平均を計算してグローバル rotorSpeed に反映
+      const sumSpeed = rotorSpeedHistory.reduce((a, v) => a + v.speed, 0);
+      rotorSpeed = sumSpeed / rotorSpeedHistory.length;
+
+      // デバッグ
+      // console.log("avgDutyNow:", avgDutyNow.toFixed(3),
+      //             "rotorSpeedNow:", rotorSpeedNow.toFixed(1),
+      //             "rotorSpeed(1s avg):", rotorSpeed.toFixed(1));
+      });
   }, 100);
 }
 function updateDroneFromPdu() {
@@ -246,6 +295,26 @@ function updateDroneFromPdu() {
   // 直接絶対姿勢をセット
   droneRoot.setPositionRos(rosPos);
   droneRoot.setRpyRosDeg(rosRpyDeg);
+
+  // プロペラ回転速度セット
+  console.log("Setting rotorSpeed from PDU:", rotorSpeed);
+  const dt = clock.getDelta();
+  let index = 0;
+  if (rotorSpeed !== 0) {
+    const d = rotorSpeed * dt;
+    console.log("Updating rotors with speed:", d);
+    for (const rotorEnt of rotorEntities) {
+      // ローターは自分のローカル軸まわりに回転
+      if (index % 2 === 0) {
+        rotorEnt.rotateLocalEuler([0, -d, 0]); // 例: Y 軸 逆回転
+      } else {
+        rotorEnt.rotateLocalEuler([0, d, 0]); // 例: Y 軸
+      }
+      index++;
+    }
+  }
+
+
 }
 
 // -------------------------------------------------------------
@@ -347,8 +416,11 @@ function updateDroneDebug(dt) {
 
   if (rotorSpeed !== 0) {
     const d = rotorSpeed * dt;
+    console.log("Updating rotors with speed:", d);
     for (const rotorEnt of rotorEntities) {
       // ローターは自分のローカル軸まわりに回転
+      console.log("rotorSpeed:", rotorSpeed);
+      console.log("dt:", dt);
       rotorEnt.rotateLocalEuler([0, d, 0]); // 例: Y 軸
     }
   }
