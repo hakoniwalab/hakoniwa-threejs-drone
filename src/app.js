@@ -108,11 +108,6 @@ async function buildEnvironment(envCfg) {
         }
 
         ent.setAttachment(m);
-
-        //scale
-        if (envCfg.scale) {
-          m.scale.set(envCfg.scale, envCfg.scale, envCfg.scale);
-        }
         ent.setPositionRos(envCfg.pos);
         ent.setRpyRosDeg(envCfg.hpr);
 
@@ -441,7 +436,9 @@ function updateDroneDebug(dt) {
 
 function animate() {
   requestAnimationFrame(animate);
-  const dt = clock.getDelta();
+  let dt = clock.getDelta();
+  if (dt < 0.0001) dt = 0.0001; // ほぼ0は 0.1ms とみなす
+  if (dt > 0.05)   dt = 0.05;   // 50ms(=20fps) より大きいのは固定
 
   // ★ PDU優先で位置決め
   updateDroneFromPdu(dt);
