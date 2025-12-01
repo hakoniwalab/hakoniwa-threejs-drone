@@ -16,7 +16,7 @@ export const HakoniwaFrame = {
     return {
       x: -yr,  // left -> -right
       y:  zr,  // up   -> up
-      z: -xr,  // fwd  -> -forward (three のカメラ前方を -Z とみなす)
+      z: xr,  
     };
   },
 
@@ -26,37 +26,21 @@ export const HakoniwaFrame = {
   threePosToRos(threePos) {
     const { x, y, z } = threePos;
     return {
-      x: -z,
+      x: z,
       y: -x,
       z:  y,
     };
   },
 
-  /**
-   * 回転: ROS RPY[deg] (roll,pitch,yaw) → three.js Euler(rad)
-   * ※ここは実機モデルを見ながら微調整前提。
-   */
   rosRpyDegToThreeEuler(rosRpyDeg) {
     const [rollDeg, pitchDeg, yawDeg] = rosRpyDeg;
     const roll  = rollDeg  * DEG2RAD;
     const pitch = pitchDeg * DEG2RAD;
     const yaw   = yawDeg   * DEG2RAD;
 
-    // 仮実装:
-    // - yaw(Z) を three.js の Y(up) 回転に対応させる
-    // - pitch(Y) / roll(X) を X/Z にそれぞれ割り当てる
-    //
-    // 実際には、ドローンモデルの「前」が ROS X+ / three.js -Z と
-    // きちんと一致するように、ここを調整していく感じ。
-    //
-    // とりあえずの案として:
-    //   three.x = pitch
-    //   three.y = yaw
-    //   three.z = roll
-    //
-    // を置いておく。
+
     return {
-      x: pitch,
+      x: -pitch,
       y: yaw,
       z: roll,
     };

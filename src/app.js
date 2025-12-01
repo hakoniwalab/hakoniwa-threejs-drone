@@ -67,22 +67,43 @@ async function buildDrone(droneCfg) {
       reject
     );
   });
-
-  ent.setAttachment(m);
-  ent.setPositionRos(droneCfg.pos);
-  ent.setRpyRosDeg(droneCfg.hpr);
+  const ent_model = new RenderEntity(droneCfg.name + "_model");
+  ent_model.setAttachment(m);
+  ent_model.setPositionRos(droneCfg.model_pos);
+  ent_model.setRpyRosDeg(droneCfg.model_hpr);
+  ent.addChild(ent_model);
 
   // rotors (最小)
   if (droneCfg.rotors) {
     for (const r of droneCfg.rotors) {
       const rotorEnt = new RenderEntity(r.name);
-      rotorEnt.setPositionRos(r.pos);
+      const rotorEntModel = new RenderEntity(r.name + "_model");
 
       loader.load(r.model, (gltf) => {
-        rotorEnt.setAttachment(gltf.scene);
+        rotorEntModel.setAttachment(gltf.scene);
+      });
+      rotorEntModel.setRpyRosDeg(r.model_hpr);
+      rotorEnt.addChild(rotorEntModel);
+
+      rotorEnt.setPositionRos(r.pos);
+      ent.addChild(rotorEnt);
+    }
+  }
+  if (droneCfg.cameras) {
+    for (const c of droneCfg.cameras) {
+      const camEnt = new RenderEntity(c.name);
+      const camModelEnt = new RenderEntity(c.name + "_model");
+      camModelEnt.setPositionRos(c.model.pos);
+      camModelEnt.setRpyRosDeg(c.model.hpr);
+      loader.load(c.model.model_path, (gltf) => {
+        camModelEnt.setAttachment(gltf.scene);
       });
 
-      ent.addChild(rotorEnt);
+      camEnt.addChild(camModelEnt);
+      camEnt.setPositionRos(c.pos);
+      camEnt.setRpyRosDeg(c.hpr);
+
+      ent.addChild(camEnt);
     }
   }
 
