@@ -12,8 +12,17 @@ export class RenderEntity {
 
     // 任意に使えるメタ情報（用途: "rotor" とか "camera" とか）
     this.tag = null;
+    // ROS 座標系での絶対位置・姿勢を保持
+    this.rosPos = [0, 0, 0];
+    this.rosRpyDeg = [0, 0, 0];  // [roll, pitch, yaw]    
   }
-
+  _applyRosPose() {
+    HakoniwaFrame.applyRosPoseToObject3D(
+      this.object3d,
+      this.rosPos,
+      this.rosRpyDeg
+    );
+  }
   /**
    * Scene に追加
    */
@@ -52,25 +61,25 @@ export class RenderEntity {
    * three.js ネイティブ座標での操作
    */
   setPositionThree(x, y, z) {
-    this.object3d.position.set(x, y, z);
   }
 
-  setRotationThreeEuler(rx, ry, rz) {
-    this.object3d.rotation.set(rx, ry, rz);
-  }
+setRotationThreeEuler(rx, ry, rz, order = 'XYZ') {
+  this.object3d.rotation.order = order;
+  this.object3d.rotation.set(rx, ry, rz);
+}
 
   /**
    * Hakoniwa/ROS 座標系で設定するためのヘルパー
    * config が ROS ベースの場合に使う。
    */
   setPositionRos(posArray) {
-    const p = HakoniwaFrame.rosPosToThree(posArray);
-    this.setPositionThree(p.x, p.y, p.z);
+    this.rosPos = [...posArray];
+    this._applyRosPose();
   }
 
   setRpyRosDeg(rpyArrayDeg) {
-    const e = HakoniwaFrame.rosRpyDegToThreeEuler(rpyArrayDeg);
-    this.setRotationThreeEuler(e.x, e.y, e.z);
+    this.rosRpyDeg = [...rpyArrayDeg];
+    this._applyRosPose();
   }
 
   /**
@@ -78,6 +87,26 @@ export class RenderEntity {
    */
   getWorldPosition(target = new THREE.Vector3()) {
     return this.object3d.getWorldPosition(target);
+  }
+
+
+  // ★ 増分（ROS 絶対座標系）で移動
+  translateRos(dPos) {
+    this.rosPos = this.rosPos.map((v, i) => v + dPos[i]);
+    this._applyRosPose();
+  }
+
+  // ★ 増分（ROS RPY[deg]）で回転
+  rotateRosDeg(dRpy) {
+    this.rosRpyDeg = this.rosRpyDeg.map((v, i) => v + dRpy[i]);
+    this._applyRosPose();
+  }
+
+  // ★ “モデルに依存した局所回転” 用（ローター回転など）
+  rotateLocalEuler(dEuler) {
+    this.object3d.rotation.x += dEuler[0];
+    this.object3d.rotation.y += dEuler[1];
+    this.object3d.rotation.z += dEuler[2];
   }
 
   /**

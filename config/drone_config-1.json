@@ -1,55 +1,51 @@
 {
   "environments": [
-    {
-      "name": "ground",
-      "model": "/assets/models/medieval_town.glb",
-      "pos": [0, 0, 0],
-      "hpr": [0, 0, 0]
-    }
   ],
   "main_camera": {
     "fov": 90,
-    "near": 0.5,
+    "near": 0.1,
     "far": 20000,
-    "position": [ 1.0, 1.0, 1.0 ],
+    "position": [ -0.3, 0.0, 0.1 ],
     "target":   [ 0.0, 0.0, 0.0 ]
   },
   "drones": [
     {
       "name": "Drone",
+      "pos": [0.0, 0.0, 0.0],
+      "hpr": [0.0, 0.0, 0.0],
       "model": "/assets/models/drone.glb",
       "model_pos": [0, 0, 0.01],
-      "model_hpr": [0, 90, 180],
+      "model_hpr": [0, -90, 180],
       "rotors": [
         {
           "name": "drone_rotor1",
-          "model": "/assets/models/prop-1.glb",
-          "pos": [0.020, 0.058, 0.0],
-          "model_hpr": [90, -90, 0]
+          "model": "/assets/models/prop-2.glb",
+          "pos": [0.065, 0.055, 0.0],
+          "model_hpr": [0, -90, 0]
         },
         {
           "name": "drone_rotor2",
           "model": "/assets/models/prop-1.glb",
-          "pos": [0.020, -0.058, 0.0],
-          "model_hpr": [90, -90, 0]
+          "pos": [0.065, -0.055, 0.0],
+          "model_hpr": [0, -90, 0]
         },
         {
           "name": "drone_rotor3",
           "model": "/assets/models/prop-1.glb",
-          "pos": [-0.065, -0.058, 0.0],
-          "model_hpr": [90, -90, 0]
+          "pos": [-0.025, -0.055, 0.0],
+          "model_hpr": [0, -90, 0]
         },
         {
           "name": "drone_rotor4",
-          "model": "/assets/models/prop-2.glb",
-          "pos": [-0.065, 0.058, 0.0],
-          "model_hpr": [90, -90, 0]
+          "model": "/assets/models/prop-1.glb",
+          "pos": [-0.025, 0.055, 0.0],
+          "model_hpr": [0, -90, 0]
         }
       ],
       "cameras": [
         {
           "name": "front_camera",
-          "pos": [-0.1, 0, 0.01],
+          "pos": [0.1, 0.0, 0.01],
           "hpr": [0, 0, 0],
           "fov": 90,
           "near": 0.015,
@@ -64,7 +60,7 @@
           "model": {
             "model_path": "/assets/models/camera.glb",
             "pos": [0.0, 0.0, 0.0],
-            "hpr": [180, -90, 0]
+            "hpr": [0, 90, 0]
           }
         }
       ]

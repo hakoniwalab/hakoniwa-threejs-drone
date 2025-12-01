@@ -22,6 +22,66 @@ container.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 
+// ★ デバッグ用
+let droneRoot = null;            // ドローンのルート RenderEntity
+const rotorEntities = [];          // プロペラ用 RenderEntity（またはその object3d）
+const keyState = {};             // キーボード状態
+let rotorSpeed = 0;              // [rad/sec] 回転速度（+で正転, -で逆転）
+
+// ★ デバッグUI要素
+const debugPanel = document.createElement('div');
+debugPanel.style.cssText = `
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #0f0;
+  font-family: monospace;
+  font-size: 14px;
+  padding: 10px;
+  border-radius: 5px;
+  pointer-events: none;
+  z-index: 1000;
+`;
+container.appendChild(debugPanel);
+
+function updateDebugUI() {
+  if (!droneRoot) {
+    debugPanel.textContent = 'Drone: Not loaded';
+    return;
+  }
+
+  const pos = droneRoot.rosPos;
+  const rpy = droneRoot.rosRpyDeg;
+  
+  // Three.js座標を取得
+  const threePos = droneRoot.object3d.position;
+  const threeRot = droneRoot.object3d.rotation;
+
+  debugPanel.innerHTML = `
+<b>Drone Position (ROS)</b>
+X: ${pos[0].toFixed(3)} m (forward)
+Y: ${pos[1].toFixed(3)} m (left)
+Z: ${pos[2].toFixed(3)} m (up)
+
+<b>Drone Position (Three.js)</b>
+X: ${threePos.x.toFixed(3)} m (right)
+Y: ${threePos.y.toFixed(3)} m (up)
+Z: ${threePos.z.toFixed(3)} m (forward)
+
+<b>Drone Rotation (ROS)</b>
+Roll:  ${rpy[0].toFixed(1)}°
+Pitch: ${rpy[1].toFixed(1)}°
+Yaw:   ${rpy[2].toFixed(1)}°
+
+<b>Drone Rotation (Three.js)</b>
+X: ${(threeRot.x * 180 / Math.PI).toFixed(1)}°
+Y: ${(threeRot.y * 180 / Math.PI).toFixed(1)}°
+Z: ${(threeRot.z * 180 / Math.PI).toFixed(1)}°
+  `.trim();
+}
+
+
 // -------------------------------------------------------------
 //  Environment builder
 // -------------------------------------------------------------
@@ -72,6 +132,8 @@ async function buildDrone(droneCfg) {
   ent_model.setPositionRos(droneCfg.model_pos);
   ent_model.setRpyRosDeg(droneCfg.model_hpr);
   ent.addChild(ent_model);
+  if (droneCfg.pos) { ent.setPositionRos(droneCfg.pos); }
+  if (droneCfg.hpr) { ent.setRpyRosDeg(droneCfg.hpr); }
 
   // rotors (最小)
   if (droneCfg.rotors) {
@@ -87,6 +149,9 @@ async function buildDrone(droneCfg) {
 
       rotorEnt.setPositionRos(r.pos);
       ent.addChild(rotorEnt);
+
+      //for debug
+      rotorEntities.push(rotorEnt);
     }
   }
   if (droneCfg.cameras) {
@@ -108,6 +173,10 @@ async function buildDrone(droneCfg) {
   }
 
   scene.add(ent.object3d);
+
+  // for debug
+  droneRoot = ent;
+
   return ent;
 }
 
@@ -146,12 +215,14 @@ async function main() {
   // Main camera 設定
   if (cfg.main_camera) {
     const mc = cfg.main_camera;
+    const three_position = HakoniwaFrame.rosPosToThree(mc.position);
+    const three_target = HakoniwaFrame.rosPosToThree(mc.target);
     orbitCam = new OrbitCamera(renderer, {
       fov: mc.fov ?? 60,
       near: mc.near ?? 0.1,
       far: mc.far ?? 1000,
-      position: mc.position ?? [5, 5, 5],
-      target: mc.target ?? [0, 0, 0]
+      position: [three_position.x, three_position.y, three_position.z],
+      target: [three_target.x, three_target.y, three_target.z]
     });
   } else {
     orbitCam = new OrbitCamera(renderer);
@@ -162,10 +233,56 @@ async function main() {
   animate();
 }
 
+function updateDroneDebug(dt) {
+  if (!droneRoot) return;
+
+  const moveSpeed = 2.0;        // [m/s] (ROS 座標系)
+  const rotSpeedDeg = 60.0;     // [deg/s] yaw 用
+
+  const dPos = [0, 0, 0];       // [dx, dy, dz] in ROS
+  const dRpy = [0, 0, 0];       // [droll, dpitch, dyaw] in deg
+
+  // --- 位置: ROS 絶対座標系での移動 ---
+  //  X: forward, Y: left, Z: up
+  if (keyState["w"]) dPos[0] += moveSpeed * dt;   // 前へ
+  if (keyState["s"]) dPos[0] -= moveSpeed * dt;   // 後ろへ
+  if (keyState["a"]) dPos[1] += moveSpeed * dt;   // 左へ
+  if (keyState["d"]) dPos[1] -= moveSpeed * dt;   // 右へ
+  if (keyState["r"]) dPos[2] += moveSpeed * dt;   // 上へ
+  if (keyState["f"]) dPos[2] -= moveSpeed * dt;   // 下へ
+
+  // --- 姿勢: ROS の yaw を変更 ---
+  if (keyState["q"]) dRpy[2] += rotSpeedDeg * dt; // 左ヨー
+  if (keyState["e"]) dRpy[2] -= rotSpeedDeg * dt; // 右ヨー
+
+  if (dPos[0] || dPos[1] || dPos[2]) {
+    droneRoot.translateRos(dPos);
+  }
+  if (dRpy[0] || dRpy[1] || dRpy[2]) {
+    droneRoot.rotateRosDeg(dRpy);
+  }
+
+  // --- プロペラ回転 ---
+  const accel = 20.0; // [rad/s^2]
+  if (keyState["j"]) rotorSpeed -= accel * dt;
+  if (keyState["k"]) rotorSpeed += accel * dt;
+  if (keyState["l"]) rotorSpeed = 0;
+
+  if (rotorSpeed !== 0) {
+    const d = rotorSpeed * dt;
+    for (const rotorEnt of rotorEntities) {
+      // ローターは自分のローカル軸まわりに回転
+      rotorEnt.rotateLocalEuler([0, d, 0]); // 例: Y 軸
+    }
+  }
+}
+
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
-
+  updateDroneDebug(dt);
+  updateDebugUI();
   if (orbitCam) {
     orbitCam.update(dt);
     renderer.render(scene, orbitCam.camera);
@@ -181,6 +298,14 @@ window.addEventListener("resize", () => {
   if (orbitCam) {
     orbitCam.resize(w, h);
   }
+});
+// ★ キー入力
+window.addEventListener("keydown", (e) => {
+  keyState[e.key] = true;
+});
+
+window.addEventListener("keyup", (e) => {
+  keyState[e.key] = false;
 });
 
 
