@@ -266,7 +266,9 @@ async function startPduPolling() {
       const avgDutyNow = sumDuty / count;
 
       // duty → 回転速度（仮変換）
-      const rotorSpeedNow = avgDutyNow * 40000.0; // 好きなスケールに調整OK
+      const rotorSpeedNow = avgDutyNow * 200.0; // 好きなスケールに調整OK
+      //console.log("avgDutyNow:", avgDutyNow.toFixed(3),
+      //            "rotorSpeedNow:", rotorSpeedNow.toFixed(1));
 
       // --- 1秒分の履歴を作る ---
       const nowSec = performance.now() / 1000.0;
@@ -282,6 +284,8 @@ async function startPduPolling() {
       // 平均を計算してグローバル rotorSpeed に反映
       const sumSpeed = rotorSpeedHistory.reduce((a, v) => a + v.speed, 0);
       rotorSpeed = sumSpeed / rotorSpeedHistory.length;
+      //console.log("length:", rotorSpeedHistory.length,
+      //            "rotorSpeed(1s avg):", rotorSpeed.toFixed(1));
 
       // デバッグ
       // console.log("avgDutyNow:", avgDutyNow.toFixed(3),
@@ -290,7 +294,7 @@ async function startPduPolling() {
       });
   }, 100);
 }
-function updateDroneFromPdu() {
+function updateDroneFromPdu(dt) {
   if (!droneRoot) return;
   if (!pduConnected) return;
   if (!latestPduPose) return;
@@ -303,12 +307,14 @@ function updateDroneFromPdu() {
   droneRoot.setRpyRosDeg(rosRpyDeg);
 
   // プロペラ回転速度セット
-  console.log("Setting rotorSpeed from PDU:", rotorSpeed);
-  const dt = clock.getDelta();
+  //console.log("Setting rotorSpeed from PDU:", rotorSpeed);
+  if (dt <= 0) return;
   let index = 0;
   if (rotorSpeed !== 0) {
     const d = rotorSpeed * dt;
-    console.log("Updating rotors with speed:", d);
+    //console.log("Updating rotors with speed:", d);
+    //console.log("rotorSpeed:", rotorSpeed);
+    //console.log("dt:", dt);
     for (const rotorEnt of rotorEntities) {
       // ローターは自分のローカル軸まわりに回転
       if (index % 2 === 0) {
@@ -422,11 +428,11 @@ function updateDroneDebug(dt) {
 
   if (rotorSpeed !== 0) {
     const d = rotorSpeed * dt;
-    console.log("Updating rotors with speed:", d);
+    //console.log("Updating rotors with speed:", d);
     for (const rotorEnt of rotorEntities) {
       // ローターは自分のローカル軸まわりに回転
-      console.log("rotorSpeed:", rotorSpeed);
-      console.log("dt:", dt);
+      //console.log("rotorSpeed:", rotorSpeed);
+      //console.log("dt:", dt);
       rotorEnt.rotateLocalEuler([0, d, 0]); // 例: Y 軸
     }
   }
@@ -438,7 +444,7 @@ function animate() {
   const dt = clock.getDelta();
 
   // ★ PDU優先で位置決め
-  updateDroneFromPdu();
+  updateDroneFromPdu(dt);
 
   // ★ デバッグ用 WASD は「PDU未接続のときだけ」有効にしてもいい
   if (!pduConnected) {
