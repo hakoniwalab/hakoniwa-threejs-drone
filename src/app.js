@@ -4,6 +4,8 @@ import { RenderEntity } from "./render_entity.js";
 import { HakoniwaFrame } from "./frame.js";
 import { createGltfLoader, loadConfig } from "./loader.js";
 import { OrbitCamera } from "./orbit_camera.js";
+import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
+import { pduToJs_Twist } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
 
 console.log("[Hakoniwa] app.js loaded");
 const clock = new THREE.Clock();
@@ -11,6 +13,13 @@ const clock = new THREE.Clock();
 const container = document.getElementById("app");
 const loader = createGltfLoader(THREE);
 let orbitCam = null;
+let latestPduPose = null;   // { rosPos: [x,y,z], rosRpyDeg: [r,p,y] }
+let pduConnected = false;
+let followTargetEnt = null;       // 追従する RenderEntity（Drone）
+let followOffsetThree = null;     // Three 座標系のオフセット
+const tmpVec3 = new THREE.Vector3(); // 毎フレーム使い回す用
+
+const DRONE_ID = "Drone";   // drone_config-1.json の name と合わせる
 
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -64,21 +73,17 @@ X: ${pos[0].toFixed(3)} m (forward)
 Y: ${pos[1].toFixed(3)} m (left)
 Z: ${pos[2].toFixed(3)} m (up)
 
-<b>Drone Position (Three.js)</b>
-X: ${threePos.x.toFixed(3)} m (right)
-Y: ${threePos.y.toFixed(3)} m (up)
-Z: ${threePos.z.toFixed(3)} m (forward)
-
 <b>Drone Rotation (ROS)</b>
 Roll:  ${rpy[0].toFixed(1)}°
 Pitch: ${rpy[1].toFixed(1)}°
 Yaw:   ${rpy[2].toFixed(1)}°
-
-<b>Drone Rotation (Three.js)</b>
-X: ${(threeRot.x * 180 / Math.PI).toFixed(1)}°
-Y: ${(threeRot.y * 180 / Math.PI).toFixed(1)}°
-Z: ${(threeRot.z * 180 / Math.PI).toFixed(1)}°
   `.trim();
+  debugPanel.innerHTML += `
+<hr>
+<b>PDU</b>
+Connected: ${pduConnected}
+Has Pose:  ${latestPduPose ? 'yes' : 'no'}
+`.trim();  
 }
 
 
@@ -180,6 +185,68 @@ async function buildDrone(droneCfg) {
   return ent;
 }
 
+async function startPduPolling() {
+  // すでに接続済みなら二重起動しない
+  const state = Hakoniwa.getConnectionState();
+  if (state.isConnected) {
+    return;
+  }
+
+  const ok = await Hakoniwa.connect();
+  if (!ok) {
+    console.error("[HakoniwaThree] PDU connect failed.");
+    return;
+  }
+  pduConnected = true;
+  console.log("[HakoniwaThree] PDU connected.");
+
+  // pos PDU を declare（Leaflet版と同じ）
+  Hakoniwa.withPdu(async (pdu) => {
+    const ret = await pdu.declare_pdu_for_read(DRONE_ID, "pos");
+    console.log(`[HakoniwaThree] declare ${DRONE_ID}/pos:`, ret);
+  });
+
+  // ★ ポーリング開始（100msごと）
+  setInterval(() => {
+    Hakoniwa.withPdu((pdu) => {
+      const buf = pdu.read_pdu_raw_data(DRONE_ID, "pos");
+      if (!buf) return;
+
+      const twist = pduToJs_Twist(buf);
+
+      const x_ros = twist.linear.x;
+      const y_ros = twist.linear.y;
+      const z_ros = twist.linear.z;
+      const roll  = twist.angular.x; // [rad]
+      const pitch = twist.angular.y;
+      const yaw   = twist.angular.z;
+
+      // rad → deg に変換（RenderEntity は deg 前提）
+      const rad2deg = (r) => r * 180.0 / Math.PI;
+
+      latestPduPose = {
+        rosPos: [x_ros, y_ros, z_ros],
+        rosRpyDeg: [
+          rad2deg(roll),
+          rad2deg(pitch),
+          rad2deg(yaw),
+        ],
+      };
+    });
+  }, 100);
+}
+function updateDroneFromPdu() {
+  if (!droneRoot) return;
+  if (!pduConnected) return;
+  if (!latestPduPose) return;
+
+  // ここは毎フレーム同じ値で上書きする前提
+  const { rosPos, rosRpyDeg } = latestPduPose;
+
+  // 直接絶対姿勢をセット
+  droneRoot.setPositionRos(rosPos);
+  droneRoot.setRpyRosDeg(rosRpyDeg);
+}
 
 // -------------------------------------------------------------
 //  Main flow
@@ -215,20 +282,30 @@ async function main() {
   // Main camera 設定
   if (cfg.main_camera) {
     const mc = cfg.main_camera;
-    const three_position = HakoniwaFrame.rosPosToThree(mc.position);
-    const three_target = HakoniwaFrame.rosPosToThree(mc.target);
+    followTargetEnt = drone; // buildDrone で作ったやつ
+
+    // ROS オフセット -> Three ベクトル
+    const offsetRos = mc.position ?? [0, 0, 0];
+    followOffsetThree = HakoniwaFrame.rosPosToThree(offsetRos);
+
+    // 初期位置: Drone のワールド座標 + オフセット
+    const targetWorld = followTargetEnt.getWorldPosition(tmpVec3.clone());
+    const camPos = targetWorld.clone().add(followOffsetThree);
+
     orbitCam = new OrbitCamera(renderer, {
-      fov: mc.fov ?? 60,
+      fov:  mc.fov  ?? 60,
       near: mc.near ?? 0.1,
-      far: mc.far ?? 1000,
-      position: [three_position.x, three_position.y, three_position.z],
-      target: [three_target.x, three_target.y, three_target.z]
+      far:  mc.far  ?? 1000,
+      position: [camPos.x,      camPos.y,      camPos.z],
+      target:   [targetWorld.x, targetWorld.y, targetWorld.z],
     });
   } else {
     orbitCam = new OrbitCamera(renderer);
   }
 
   scene.add(orbitCam.entity.object3d);
+
+  startPduPolling().catch(e => console.error(e));
 
   animate();
 }
@@ -281,8 +358,32 @@ function updateDroneDebug(dt) {
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
-  updateDroneDebug(dt);
+
+  // ★ PDU優先で位置決め
+  updateDroneFromPdu();
+
+  // ★ デバッグ用 WASD は「PDU未接続のときだけ」有効にしてもいい
+  if (!pduConnected) {
+    updateDroneDebug(dt);
+  }
   updateDebugUI();
+
+  // --- 追従カメラ更新 ---
+  if (followTargetEnt && followOffsetThree && orbitCam) {
+    const targetWorld = followTargetEnt.getWorldPosition(tmpVec3.clone());
+    const camPos = targetWorld.clone().add(followOffsetThree);
+
+    // OrbitCamera の実装に合わせてここは調整：
+    // 典型的にはこういう感じ：
+    orbitCam.camera.position.copy(camPos);
+    if (orbitCam.controls) {
+      orbitCam.controls.target.copy(targetWorld);
+      orbitCam.controls.update();
+    } else {
+      orbitCam.camera.lookAt(targetWorld);
+    }
+  }
+
   if (orbitCam) {
     orbitCam.update(dt);
     renderer.render(scene, orbitCam.camera);

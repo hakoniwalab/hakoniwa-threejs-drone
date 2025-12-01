@@ -6,7 +6,7 @@
     "near": 0.1,
     "far": 20000,
     "position": [ -0.3, 0.0, 0.1 ],
-    "target":   [ 0.0, 0.0, 0.0 ]
+    "target":  "Drone"
   },
   "drones": [
     {
