@@ -121,7 +121,19 @@ function animate() {
 
   if (orbitCam) {
     orbitCam.update(dt);
+
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
+    // ① メインビュー
+    renderer.setViewport(0, 0, w, h);
+    renderer.setScissorTest(false);
     renderer.render(scene, orbitCam.camera);
+
+    // ② 小窓たち（AttachCamera 相当）
+    for (const d of drones) {
+      d.renderAttachedCameras(renderer, scene, w, h);
+    }
   }
 }
 

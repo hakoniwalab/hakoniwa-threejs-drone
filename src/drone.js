@@ -1,4 +1,5 @@
 // src/drone.js
+import * as THREE from "three"; 
 import { RenderEntity } from "./render_entity.js";
 import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_Twist } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
@@ -35,88 +36,119 @@ export class Drone {
         this.rotorSpeed = 0;         // [rad/s]
         this._rotorHist = [];        // { t, speed }[]
         this._rotorWindowSec = 1.0;  // [sec]
+
+        // ★ 小窓用カメラ群（Drone に紐づく）
+        // [{ entity: RenderEntity, camera: THREE.PerspectiveCamera,
+        //    viewport: {x,y,width,height}, backgroundColor: THREE.Color }]
+        this.viewCameras = [];
     }
 
     // ---------- factory ----------
 
     static async create(scene, loader, cfg, options) {
-    const d = new Drone(scene, loader, cfg, options);
-    await d._initGraphics();
-    await d._initPdu();          // ここで PDU 接続＋ポーリング開始
-    return d;
+        const d = new Drone(scene, loader, cfg, options);
+        await d._initGraphics();
+        await d._initPdu();          // ここで PDU 接続＋ポーリング開始
+        return d;
     }
 
     // ---------- init graphics ----------
 
     async _initGraphics() {
-    const cfg = this.cfg;
-    const root = new RenderEntity(cfg.name);
+        const cfg = this.cfg;
+        const root = new RenderEntity(cfg.name);
 
-    // 本体モデル
-    const modelObj = await new Promise((resolve, reject) => {
-        this.loader.load(
-        cfg.model.model_path,
-        (gltf) => resolve(gltf.scene),
-        undefined,
-        reject
-        );
-    });
-
-    const modelEnt = new RenderEntity(cfg.name + "_model");
-    modelEnt.setAttachment(modelObj);
-    modelEnt.setPositionRos(cfg.model.pos);
-    modelEnt.setRpyRosDeg(cfg.model.hpr);
-    root.setModel(modelEnt);
-
-    if (cfg.pos) root.setPositionRos(cfg.pos);
-    if (cfg.hpr) root.setRpyRosDeg(cfg.hpr);
-
-    // rotors
-    if (cfg.rotors) {
-        for (const r of cfg.rotors) {
-        const rotorEnt = new RenderEntity(r.name);
-        const rotorModelEnt = new RenderEntity(r.name + "_model");
-
-        this.loader.load(r.model.model_path, (gltf) => {
-            rotorModelEnt.setAttachment(gltf.scene);
+        // 本体モデル
+        const modelObj = await new Promise((resolve, reject) => {
+            this.loader.load(
+            cfg.model.model_path,
+            (gltf) => resolve(gltf.scene),
+            undefined,
+            reject
+            );
         });
 
-        rotorModelEnt.setRpyRosDeg(r.model.hpr);
-        rotorModelEnt.setPositionRos(r.model.pos);
-        rotorEnt.setModel(rotorModelEnt);
+        const modelEnt = new RenderEntity(cfg.name + "_model");
+        modelEnt.setAttachment(modelObj);
+        modelEnt.setPositionRos(cfg.model.pos);
+        modelEnt.setRpyRosDeg(cfg.model.hpr);
+        root.setModel(modelEnt);
 
-        rotorEnt.setPositionRos(r.pos);
-        rotorEnt.setRpyRosDeg(r.hpr);
-        root.addChild(rotorEnt);
+        if (cfg.pos) root.setPositionRos(cfg.pos);
+        if (cfg.hpr) root.setRpyRosDeg(cfg.hpr);
 
-        this.rotors.push(rotorEnt);
+        // rotors
+        if (cfg.rotors) {
+            for (const r of cfg.rotors) {
+            const rotorEnt = new RenderEntity(r.name);
+            const rotorModelEnt = new RenderEntity(r.name + "_model");
+
+            this.loader.load(r.model.model_path, (gltf) => {
+                rotorModelEnt.setAttachment(gltf.scene);
+            });
+
+            rotorModelEnt.setRpyRosDeg(r.model.hpr);
+            rotorModelEnt.setPositionRos(r.model.pos);
+            rotorEnt.setModel(rotorModelEnt);
+
+            rotorEnt.setPositionRos(r.pos);
+            rotorEnt.setRpyRosDeg(r.hpr);
+            root.addChild(rotorEnt);
+
+            this.rotors.push(rotorEnt);
+            }
         }
-    }
 
-    // cameras
-    if (cfg.cameras) {
-        for (const c of cfg.cameras) {
-        const camEnt = new RenderEntity(c.name);
-        const camModelEnt = new RenderEntity(c.name + "_model");
+        // cameras
+        if (cfg.cameras) {
+            for (const c of cfg.cameras) {
+                const camEnt = new RenderEntity(c.name);
+                const camModelEnt = new RenderEntity(c.name + "_model");
 
-        camModelEnt.setPositionRos(c.model.pos);
-        camModelEnt.setRpyRosDeg(c.model.hpr);
+                // 見た目のカメラモデル
+                camModelEnt.setPositionRos(c.model.pos);
+                camModelEnt.setRpyRosDeg(c.model.hpr);
 
-        this.loader.load(c.model.model_path, (gltf) => {
-            camModelEnt.setAttachment(gltf.scene);
-        });
+                this.loader.load(c.model.model_path, (gltf) => {
+                    camModelEnt.setAttachment(gltf.scene);
+                });
 
-        camEnt.addChild(camModelEnt);
-        camEnt.setPositionRos(c.pos);
-        camEnt.setRpyRosDeg(c.hpr);
+                camEnt.addChild(camModelEnt);
+                camEnt.setPositionRos(c.pos);
+                camEnt.setRpyRosDeg(c.hpr);
 
-        root.addChild(camEnt);
-        this.cameras.push(camEnt);
-        }
-    }
+                root.addChild(camEnt);
+                this.cameras.push(camEnt);
 
-    this.scene.add(root.object3d);
-    this.root = root;
+                // ★ ここが AttachCamera 相当（config の fov/near/far/window をそのまま使う）
+                if (c.window) {
+                    this.addAttachedViewCamera({
+                        parentEntity: camEnt,
+                        name: (c.name || "AttachCamera") + "_view",
+
+                        // config 側のカメラパラメータをそのまま利用
+                        fov:  c.fov  ?? 70,
+                        near: c.near ?? 0.1,
+                        far:  c.far  ?? 1000,
+
+                        // 今回は追加オフセットなし（必要になったら c に足す）
+                        offsetRos: [0, 0, 0],
+                        hprRos:    [0, 0, 0],
+
+                        viewport: {
+                            x:      c.window.x,
+                            y:      c.window.y,
+                            width:  c.window.width,
+                            height: c.window.height,
+                        },
+                        backgroundColor: 0x000000,
+                    });
+                }
+            }
+        }        
+
+        this.scene.add(root.object3d);
+        this.root = root;
     }
 
     // ---------- init PDU & polling ----------
@@ -297,6 +329,98 @@ export class Drone {
         }
     }
     }
+
+
+    /**
+     * ドローンに紐づく「小窓カメラ」を追加する
+     *
+     * options:
+     * - parentEntity: RenderEntity (省略時は parentName → cameras → root の順で探す)
+     * - parentName:   cfg.cameras[].name など
+     * - name:         このカメラ用の名前
+     * - fov, near, far: Three の PerspectiveCamera パラメータ
+     * - offsetRos, hprRos: 親 RenderEntity からのオフセット（ROS 座標系／deg）
+     * - viewport: { x, y, width, height } 0〜1 の正規化座標（左下原点）
+     * - backgroundColor: 0x000000 など
+     */
+    addAttachedViewCamera({
+        parentEntity = null,
+        parentName   = null,
+        name         = "AttachCamera",
+        fov          = 70,
+        near         = 0.1,
+        far          = 1000,
+        offsetRos    = [0, 0, 0],
+        hprRos       = [0, 0, 0],
+        viewport     = { x: 0.7, y: 0.7, width: 0.25, height: 0.25 },
+        backgroundColor = 0x000000,
+    } = {}) {
+        // 親 RenderEntity を決定
+        let parent = parentEntity;
+        if (!parent) {
+        if (parentName && this.cameras && this.cameras.length > 0) {
+            parent = this.cameras.find(c => c.name === parentName) || null;
+        }
+        }
+        if (!parent) {
+        parent = this.root;
+        }
+
+        // Drone 内にオフセット用の RenderEntity を追加
+        const ent = new RenderEntity(name);
+        ent.setPositionRos(offsetRos);
+        ent.setRpyRosDeg(hprRos);
+        parent.addChild(ent);
+
+        // Three.js のカメラをぶら下げる
+        const cam = new THREE.PerspectiveCamera(fov, 1.0, near, far);
+        ent.object3d.add(cam);
+
+        this.viewCameras.push({
+            entity: ent,
+            camera: cam,
+            viewport,
+            backgroundColor: new THREE.Color(backgroundColor),
+        });
+
+        return cam;
+    }
+
+    /**
+     * 小窓カメラをレンダリング
+     */
+    renderAttachedCameras(renderer, scene, fullWidth, fullHeight) {
+        for (const v of this.viewCameras) {
+        const { viewport, camera, backgroundColor } = v;
+        const { x, y, width, height } = viewport;
+
+        const vpW = Math.floor(fullWidth  * width);
+        const vpH = Math.floor(fullHeight * height);
+        const vpX = Math.floor(fullWidth  * x);
+        const vpY = Math.floor(fullHeight * y); // three.js は左下原点
+
+        // アスペクトを小窓サイズに合わせる
+        camera.aspect = vpW / vpH;
+        camera.updateProjectionMatrix();
+
+        // 小窓領域のみ描画
+        renderer.setScissorTest(true);
+        renderer.setViewport(vpX, vpY, vpW, vpH);
+        renderer.setScissor(vpX, vpY, vpW, vpH);
+
+        const prevClear = renderer.getClearColor(new THREE.Color());
+        const prevAlpha = renderer.getClearAlpha();
+
+        renderer.setClearColor(backgroundColor, 1.0);
+        renderer.clearDepth(); // メインとは別に深度クリア
+        renderer.render(scene, camera);
+
+        // 元に戻す
+        renderer.setClearColor(prevClear, prevAlpha);
+        renderer.setScissorTest(false);
+        }
+    }
+
 
     // ---------- utility ----------
 
