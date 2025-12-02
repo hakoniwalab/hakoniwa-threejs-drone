@@ -401,27 +401,20 @@ export class Drone {
         }
         }
         if (!parent) {
-        parent = this.root;
+            parent = this.root;
         }
 
-        // Drone 内にオフセット用の RenderEntity を追加
-        const ent = new RenderEntity(name);
-        ent.setPositionRos(offsetRos);
-        ent.setRpyRosDeg(hprRos);
-        parent.addChild(ent);
-
-        // Three.js のカメラをぶら下げる
         const cam = new THREE.PerspectiveCamera(fov, 1.0, near, far);
-        ent.object3d.add(cam);
+        parent.object3d.add(cam);
 
         this.viewCameras.push({
-            entity: ent,
+            entity: parent, 
             camera: cam,
             viewport,
             backgroundColor: new THREE.Color(backgroundColor),
         });
 
-        return cam;
+        return parent;
     }
 
     /**
