@@ -126,6 +126,11 @@ export class OrbitCamera {
     this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
   }
 
+  updateFollowDistance(distance) {
+    this.followDistance += distance;
+    console.log("[OrbitCamera] followDistance:", this.followDistance);
+  }
+
   resize(width, height) {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();

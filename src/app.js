@@ -112,7 +112,12 @@ function animate() {
   for (let i = 0; i < drones.length; i++) {
     drones[i].update(dt, keyState);
   }
-  
+  if (keyState["1"]) {
+    orbitCam.updateFollowDistance(-dt * 1.0);
+  }
+  if (keyState["2"]) {
+    orbitCam.updateFollowDistance(dt * 1.0);
+  }
 
   if (orbitCam) {
     orbitCam.update(dt);
