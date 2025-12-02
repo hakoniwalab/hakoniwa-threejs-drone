@@ -67,6 +67,7 @@ export class RenderEntity {
    * three.js ネイティブ座標での操作
    */
   setPositionThree(x, y, z) {
+    this.object3d.position.set(x, y, z);
   }
 
 setRotationThreeEuler(rx, ry, rz, order = 'XYZ') {
