@@ -42,6 +42,8 @@ export class Drone {
         // [{ entity: RenderEntity, camera: THREE.PerspectiveCamera,
         //    viewport: {x,y,width,height}, backgroundColor: THREE.Color }]
         this.viewCameras = [];
+
+        this._camPitchInput = 0;
     }
 
     // ---------- factory ----------
@@ -200,7 +202,21 @@ export class Drone {
             const bufGame = pdu.read_pdu_raw_data(this.droneId, "hako_cmd_game");
             if (bufGame) {
                 const gameCtrl = pduToJs_GameControllerOperation(bufGame);
-                console.log(`[Drone:${this.droneId}] GameControllerOperation: axes=${gameCtrl.axis}, buttons=${gameCtrl.button}`);
+                const buttons = gameCtrl.button || gameCtrl.buttons || [];
+
+                let camPitch = 0;
+
+                // 11: カメラのピッチアップ
+                if (buttons[11]) {
+                    camPitch -= 1;
+                }
+                // 12: カメラのピッチダウン
+                if (buttons[12]) {
+                    camPitch += 1;
+                }
+
+                // -1 / 0 / +1 のどれかが入る想定
+                this._camPitchInput = camPitch;
             }
             // --- motor ---
             const bufMotor = pdu.read_pdu_raw_data(this.droneId, "motor");
@@ -277,64 +293,79 @@ export class Drone {
         } else {
             this._updateDebug(dt, keyState);
         }
+        this._updateViewCameras(dt);
+    }
+    _updateViewCameras(dt) {
+        if (!this.viewCameras.length) return;
+        if (!this._camPitchInput) return;
+
+        // 1秒間押しっぱなしで何度回すか（適当に調整）
+        const pitchSpeedDegPerSec = 45.0; // 例: 45度/秒
+        const dpitch = this._camPitchInput * pitchSpeedDegPerSec * dt;
+
+        // 全ての attachCamera を一緒に回す場合
+        for (const v of this.viewCameras) {
+            // ROS: [roll, pitch, yaw]
+            v.entity.rotateRosDeg([0, dpitch, 0]);
+        }
     }
 
     _updateFromPdu(dt) {
-    if (!this.latestPose) return;
+        if (!this.latestPose) return;
 
-    const { rosPos, rosRpyDeg } = this.latestPose;
-    this.root.setPositionRos(rosPos);
-    this.root.setRpyRosDeg(rosRpyDeg);
+        const { rosPos, rosRpyDeg } = this.latestPose;
+        this.root.setPositionRos(rosPos);
+        this.root.setRpyRosDeg(rosRpyDeg);
 
-    if (dt <= 0 || this.rotorSpeed === 0) return;
+        if (dt <= 0 || this.rotorSpeed === 0) return;
 
-    const d = this.rotorSpeed * dt;
-    let index = 0;
-    for (const rotorEnt of this.rotors) {
-        if (index % 2 === 0) {
-            rotorEnt.rotateLocalEuler([0, -d, 0]);
-        } else {
-            rotorEnt.rotateLocalEuler([0, d, 0]);
+        const d = this.rotorSpeed * dt;
+        let index = 0;
+        for (const rotorEnt of this.rotors) {
+            if (index % 2 === 0) {
+                rotorEnt.rotateLocalEuler([0, -d, 0]);
+            } else {
+                rotorEnt.rotateLocalEuler([0, d, 0]);
+            }
+            index++;
         }
-        index++;
-    }
+        this._updateViewCameras(dt);
     }
 
     _updateDebug(dt, keyState) {
-    const moveSpeed = 2.0;
-    const rotSpeedDeg = 60.0;
+        const moveSpeed = 2.0;
+        const rotSpeedDeg = 60.0;
 
-    const dPos = [0, 0, 0];
-    const dRpy = [0, 0, 0];
+        const dPos = [0, 0, 0];
+        const dRpy = [0, 0, 0];
+        if (keyState["w"]) dPos[0] += moveSpeed * dt;
+        if (keyState["s"]) dPos[0] -= moveSpeed * dt;
+        if (keyState["a"]) dPos[1] += moveSpeed * dt;
+        if (keyState["d"]) dPos[1] -= moveSpeed * dt;
+        if (keyState["r"]) dPos[2] += moveSpeed * dt;
+        if (keyState["f"]) dPos[2] -= moveSpeed * dt;
 
-    if (keyState["w"]) dPos[0] += moveSpeed * dt;
-    if (keyState["s"]) dPos[0] -= moveSpeed * dt;
-    if (keyState["a"]) dPos[1] += moveSpeed * dt;
-    if (keyState["d"]) dPos[1] -= moveSpeed * dt;
-    if (keyState["r"]) dPos[2] += moveSpeed * dt;
-    if (keyState["f"]) dPos[2] -= moveSpeed * dt;
+        if (keyState["q"]) dRpy[2] += rotSpeedDeg * dt;
+        if (keyState["e"]) dRpy[2] -= rotSpeedDeg * dt;
 
-    if (keyState["q"]) dRpy[2] += rotSpeedDeg * dt;
-    if (keyState["e"]) dRpy[2] -= rotSpeedDeg * dt;
-
-    if (dPos[0] || dPos[1] || dPos[2]) {
-        this.root.translateRos(dPos);
-    }
-    if (dRpy[0] || dRpy[1] || dRpy[2]) {
-        this.root.rotateRosDeg(dRpy);
-    }
-
-    const accel = 20.0;
-    if (keyState["j"]) this.rotorSpeed -= accel * dt;
-    if (keyState["k"]) this.rotorSpeed += accel * dt;
-    if (keyState["l"]) this.rotorSpeed = 0;
-
-    if (this.rotorSpeed !== 0) {
-        const d = this.rotorSpeed * dt;
-        for (const rotorEnt of this.rotors) {
-            rotorEnt.rotateLocalEuler([0, d, 0]);
+        if (dPos[0] || dPos[1] || dPos[2]) {
+            this.root.translateRos(dPos);
         }
-    }
+        if (dRpy[0] || dRpy[1] || dRpy[2]) {
+            this.root.rotateRosDeg(dRpy);
+        }
+
+        const accel = 20.0;
+        if (keyState["j"]) this.rotorSpeed -= accel * dt;
+        if (keyState["k"]) this.rotorSpeed += accel * dt;
+        if (keyState["l"]) this.rotorSpeed = 0;
+
+        if (this.rotorSpeed !== 0) {
+            const d = this.rotorSpeed * dt;
+            for (const rotorEnt of this.rotors) {
+                rotorEnt.rotateLocalEuler([0, d, 0]);
+            }
+        }
     }
 
 
