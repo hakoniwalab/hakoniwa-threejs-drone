@@ -1,9 +1,15 @@
 {
   "environments": [
     {
-      "name": "town",
+      "name": "town-mjcf",
       "model": "assets/models/drone.xml",
       "pos": [0, 0, 0],
+      "hpr": [0, 0, 90]
+    },
+    {
+      "name": "town",
+      "model": "assets/models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
+      "pos": [0, 0, -15.04],
       "hpr": [0, 0, 180]
     }
   ],

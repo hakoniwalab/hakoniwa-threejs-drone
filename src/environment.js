@@ -97,7 +97,6 @@ export async function buildEnvironment(scene, loader, envCfg) {
     const size = new THREE.Vector3();
     bbox.getSize(size);
     const diag = size.length();
-
     if (diag > 1e4) {
       const s = 100.0 / diag;
       ent.object3d.scale.multiplyScalar(s);
