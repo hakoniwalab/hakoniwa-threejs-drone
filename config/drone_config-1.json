@@ -2,8 +2,7 @@
   "environments": [
     {
       "name": "town",
-      "model": "/assets/models/medieval_town.glb",
-      "scale": 0.0024,
+      "model": "assets/models/drone.xml",
       "pos": [0, 0, 0],
       "hpr": [0, 0, 180]
     }

@@ -10,11 +10,11 @@ import { RenderEntity } from "./render_entity.js";
  * - color: [r, g, b, a]
  */
 export class BuildingData {
-  constructor(name, size, pos, hprDeg, color) {
+  constructor(name, size, pos, rxyzDeg, color) {
     this.name = name;
     this.size = size;
     this.pos = pos;
-    this.hprDeg = hprDeg;
+    this.rxyzDeg = rxyzDeg;
     this.color = color;
   }
 }
@@ -62,31 +62,22 @@ export function loadBuildingsFromMjcfXml(xmlText) {
     // const rgbaMj = parseVector(rgbaStr); // 使いたければこちら
 
     // --- サイズ変換 ---
-    // Python版:
-    // size_pd = (size_mj[1] * 2, size_mj[0] * 2, size_mj[2] * 2)
     const size = [
-      sizeMj[1] * 2,
       sizeMj[0] * 2,
+      sizeMj[1] * 2,
       sizeMj[2] * 2,
     ];
 
     // --- 位置変換 ---
-    // MuJoCo: x=前, y=左, z=上
-    // Panda3D: x=右, y=前, z=上
-    // → three.js でも「x=右, y=前, z=上」という前提で同じ変換を適用
-    // pos_pd = Vec3(pos_mj[1], -pos_mj[0], pos_mj[2])
-    const pos = [posMj[1], -posMj[0], posMj[2]];
+    const pos = [posMj[0], posMj[1], posMj[2]];
 
     // --- 回転変換 ---
-    // hpr_pd = Vec3(euler_mj[2], euler_mj[1], euler_mj[0])
-    // （MuJoCo euler は[roll, pitch, yaw] or [x,y,z]回転だが、
-    //  Python版と同じ並び替えを踏襲）
-    const hprDeg = [eulerMj[2], eulerMj[1], eulerMj[0]];
+    const rxyzDeg = [eulerMj[0], eulerMj[1], eulerMj[2]];
 
     // Python側は最終的に強制的に緑にしているので、それに合わせる
     const color = [0.0, 1.0, 0.0, 1.0];
 
-    buildings.push(new BuildingData(name, size, pos, hprDeg, color));
+    buildings.push(new BuildingData(name, size, pos, rxyzDeg, color));
   });
 
   return buildings;
@@ -107,12 +98,13 @@ export function createBuildingEntities(scene, buildingDataList, options = {}) {
   const entities = [];
 
   for (const data of buildingDataList) {
+    //all data is mujoco frame
     const [sx, sy, sz] = data.size;
     const [x, y, z] = data.pos;
-    const [hDeg, pDeg, rDeg] = data.hprDeg;
+    const [pDeg, rDeg, hDeg] = data.rxyzDeg;
     const [r, g, b] = data.color;
 
-    const geometry = new THREE.BoxGeometry(sx, sy, sz);
+    const geometry = new THREE.BoxGeometry(sx, sz, sy);
     const baseColor = new THREE.Color(r, g, b);
 
     const material =
@@ -126,11 +118,10 @@ export function createBuildingEntities(scene, buildingDataList, options = {}) {
     entity.setAttachment(mesh);
 
     // 位置・姿勢設定
-    entity.setPositionThree(x, y, z);
-    const hr = THREE.MathUtils.degToRad(hDeg);
-    const pr = THREE.MathUtils.degToRad(pDeg);
-    const rr = THREE.MathUtils.degToRad(rDeg);
-    entity.setRotationThreeEuler(hr, pr, rr, "ZXY"); // 必要に応じて回転順は調整
+    //console.log("pos:", x, y, z);
+    entity.setPositionRos([y, -x, z]); // mujoco to ros
+    //console.log("hprDeg:", hDeg, pDeg, rDeg);
+    entity.setRpyRosDeg([rDeg, pDeg, hDeg]);
 
     // シーンに追加
     entity.attachToScene(scene);
