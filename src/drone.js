@@ -4,6 +4,7 @@ import { RenderEntity } from "./render_entity.js";
 import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_Twist } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
 import { pduToJs_HakoHilActuatorControls } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
+import { pduToJs_GameControllerOperation } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_msgs/pdu_conv_GameControllerOperation.js";
 
 const rad2deg = (r) => r * 180.0 / Math.PI;
 
@@ -153,71 +154,77 @@ export class Drone {
 
     // ---------- init PDU & polling ----------
     async _initPdu() {
-    // ① すでに接続済みかチェック
-    const state = Hakoniwa.getConnectionState
-        ? Hakoniwa.getConnectionState()
-        : { isConnected: false };
+        // ① すでに接続済みかチェック
+        const state = Hakoniwa.getConnectionState
+            ? Hakoniwa.getConnectionState()
+            : { isConnected: false };
 
-    if (!state.isConnected) {
-        const ok = await Hakoniwa.connect();
-        if (!ok) {
-            console.error("[Drone] PDU connect failed.");
-            return;
+        if (!state.isConnected) {
+            const ok = await Hakoniwa.connect();
+            if (!ok) {
+                console.error("[Drone] PDU connect failed.");
+                return;
+            }
+            console.log("[Drone] PDU connected (new).");
+        } else {
+            console.log("[Drone] PDU already connected, reuse.");
         }
-        console.log("[Drone] PDU connected (new).");
-    } else {
-        console.log("[Drone] PDU already connected, reuse.");
-    }
 
-    // この Drone 的には「PDU 経由で制御できる状態」になったので true
-    this.pduConnected = true;
+        // この Drone 的には「PDU 経由で制御できる状態」になったので true
+        this.pduConnected = true;
 
-    // ② この Drone 用の PDU declare は毎機ごとにやって OK
-    await Hakoniwa.withPdu(async (pdu) => {
-        await pdu.declare_pdu_for_read(this.droneId, "pos");
-        await pdu.declare_pdu_for_read(this.droneId, "motor");
-    });
+        // ② この Drone 用の PDU declare は毎機ごとにやって OK
+        await Hakoniwa.withPdu(async (pdu) => {
+            await pdu.declare_pdu_for_read(this.droneId, "pos");
+            await pdu.declare_pdu_for_read(this.droneId, "motor");
+            await pdu.declare_pdu_for_read(this.droneId, "hako_cmd_game");
+        });
 
-    // ③ この Drone 専用のポーリング開始
-    this._startPduPolling();
+        // ③ この Drone 専用のポーリング開始
+        this._startPduPolling();
     }
 
 
     _startPduPolling() {
-    if (this._pduTimerId) return;
+        if (this._pduTimerId) return;
 
-    this._pduTimerId = setInterval(() => {
-        Hakoniwa.withPdu((pdu) => {
-        // --- pos ---
-        const bufPos = pdu.read_pdu_raw_data(this.droneId, "pos");
-        if (bufPos) {
-            const twist = pduToJs_Twist(bufPos);
-            this._setPoseFromPdu(twist);
-        }
-
-        // --- motor ---
-        const bufMotor = pdu.read_pdu_raw_data(this.droneId, "motor");
-        if (!bufMotor) return;
-
-        const msg = pduToJs_HakoHilActuatorControls(bufMotor);
-        const controls = msg.controls;
-        if (!controls || controls.length === 0) return;
-
-        let sumDuty = 0;
-        let count = 0;
-        for (const idx of this.motorChannels) {
-            if (idx < controls.length) {
-            sumDuty += controls[idx];
-            count++;
+        this._pduTimerId = setInterval(() => {
+            Hakoniwa.withPdu((pdu) => {
+            // --- pos ---
+            const bufPos = pdu.read_pdu_raw_data(this.droneId, "pos");
+            if (bufPos) {
+                const twist = pduToJs_Twist(bufPos);
+                this._setPoseFromPdu(twist);
             }
-        }
-        if (count === 0) return;
+            // --- game controller ---
+            const bufGame = pdu.read_pdu_raw_data(this.droneId, "hako_cmd_game");
+            if (bufGame) {
+                const gameCtrl = pduToJs_GameControllerOperation(bufGame);
+                console.log(`[Drone:${this.droneId}] GameControllerOperation: axes=${gameCtrl.axis}, buttons=${gameCtrl.button}`);
+            }
+            // --- motor ---
+            const bufMotor = pdu.read_pdu_raw_data(this.droneId, "motor");
+            if (!bufMotor) return;
 
-        const avgDutyNow = sumDuty / count;
-        const nowSec = performance.now() / 1000.0;
-        this._addMotorDutySample(avgDutyNow, nowSec);
-        });
-    }, this.pduPollIntervalMs);
+            const msg = pduToJs_HakoHilActuatorControls(bufMotor);
+            const controls = msg.controls;
+            if (!controls || controls.length === 0) return;
+
+            let sumDuty = 0;
+            let count = 0;
+            for (const idx of this.motorChannels) {
+                if (idx < controls.length) {
+                sumDuty += controls[idx];
+                count++;
+                }
+            }
+            if (count === 0) return;
+
+            const avgDutyNow = sumDuty / count;
+            const nowSec = performance.now() / 1000.0;
+            this._addMotorDutySample(avgDutyNow, nowSec);
+            });
+        }, this.pduPollIntervalMs);
     }
 
     // ---------- internal PDU setters ----------
