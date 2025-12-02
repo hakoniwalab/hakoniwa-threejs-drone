@@ -12,6 +12,11 @@
     "fov": 90,
     "near": 0.1,
     "far": 20000,
+    "initialMode": "fixed",
+    "followDistance": 1.0,
+    "followLerpPos": 8.0,
+    "followLerpTarget": 10.0,
+    "followToggleKey": "c",
     "position": [ -0.3, 0.0, 0.1 ],
     "target":  "Drone"
   },

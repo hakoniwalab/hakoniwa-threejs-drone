@@ -74,6 +74,7 @@ async function main() {
     }
 
     const camPos = targetWorld.clone().add(offsetThree);
+    const followTarget = (drones.length > 0) ? drones[0] : null;
 
     orbitCam = new OrbitCamera(renderer, {
       fov:  mc.fov  ?? 60,
@@ -81,7 +82,15 @@ async function main() {
       far:  mc.far  ?? 1000,
       position: [camPos.x,      camPos.y,      camPos.z],
       target:   [targetWorld.x, targetWorld.y, targetWorld.z],
+
+      followTarget,
+      initialMode: mc.initialMode ?? "follow",
+      followDistance: mc.followDistance ?? null,   // null → position/target の距離をそのまま使う
+      followLerpPos: mc.followLerpPos ?? 8.0,
+      followLerpTarget: mc.followLerpTarget ?? 10.0,
+      followToggleKey: mc.followToggleKey ?? "c",
     });
+
   } else {
     orbitCam = new OrbitCamera(renderer);
   }
