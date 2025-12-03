@@ -25,6 +25,7 @@ export async function buildEnvironment(scene, loader, envCfg) {
 
   // ---------- モデルロード部分 ----------
   if (isXml) {
+    console.log(`Loading MJCF environment model: ${modelPath}`);
     // MJCF から建物群をロード
     const res = await fetch(modelPath);
     if (!res.ok) {

@@ -10,7 +10,12 @@ console.log("[Hakoniwa] app.js loaded");
 
 const clock = new THREE.Clock();
 
-const container = document.getElementById("app");
+const container = document.getElementById("three-root");
+if (!container) {
+  console.error("[Hakoniwa] three-root element not found");
+  // 念のため fallback（デバッグ用）
+  // throw new Error("three-root not found"); でも OK
+}
 const loader = createGltfLoader(THREE);
 
 let orbitCam = null;

@@ -7,7 +7,7 @@ export function createGltfLoader(THREE_NS) {
   return loader;
 }
 // src/config_loader.js
-export async function loadConfig(url = "./config/drone_config-1.json") {
+export async function loadConfig(url = "/config/drone_config-1.json") {
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to load config: ${url}`);
