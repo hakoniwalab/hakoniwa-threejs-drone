@@ -2,9 +2,9 @@
 import * as THREE from "three"; 
 import { RenderEntity } from "./render_entity.js";
 import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
-import { pduToJs_Twist } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
-import { pduToJs_HakoHilActuatorControls } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
-import { pduToJs_GameControllerOperation } from "/thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_msgs/pdu_conv_GameControllerOperation.js";
+import { pduToJs_Twist } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
+import { pduToJs_HakoHilActuatorControls } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
+import { pduToJs_GameControllerOperation } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_msgs/pdu_conv_GameControllerOperation.js";
 
 const rad2deg = (r) => r * 180.0 / Math.PI;
 
