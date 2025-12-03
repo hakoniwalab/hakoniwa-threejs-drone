@@ -3,7 +3,7 @@ import {
     WebSocketCommunicationService
 } from '../index.js';
 
-const CONFIG = {
+let CONFIG = {
   pdu_def_path: "/config/pdudef.json",
   ws_uri: "ws://127.0.0.1:8765",
   wire_version: "v1"
@@ -12,6 +12,15 @@ const CONFIG = {
 export const Hakoniwa = (() => {
     let pduManager = null;
     let isConnected = false;
+
+    // 外から設定を上書きするための関数
+    function configure(partialConfig) {
+        CONFIG = {
+        ...CONFIG,
+        ...partialConfig,
+        };
+        console.log("[Hakoniwa] CONFIG updated:", CONFIG);
+    }
 
     // PDUマネージャ初期化関数
     async function initializePduManager() {
@@ -60,6 +69,7 @@ export const Hakoniwa = (() => {
     }
 
     return {
+        configure,
         connect,
         disconnect,
         withPdu,

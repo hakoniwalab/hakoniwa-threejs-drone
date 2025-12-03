@@ -51,7 +51,6 @@ export class Drone {
     static async create(scene, loader, cfg, options) {
         const d = new Drone(scene, loader, cfg, options);
         await d._initGraphics();
-        await d._initPdu();          // ここで PDU 接続＋ポーリング開始
         return d;
     }
 
@@ -155,21 +154,15 @@ export class Drone {
     }
 
     // ---------- init PDU & polling ----------
-    async _initPdu() {
+    async initPdu() {
         // ① すでに接続済みかチェック
         const state = Hakoniwa.getConnectionState
             ? Hakoniwa.getConnectionState()
             : { isConnected: false };
 
         if (!state.isConnected) {
-            const ok = await Hakoniwa.connect();
-            if (!ok) {
-                console.error("[Drone] PDU connect failed.");
-                return;
-            }
-            console.log("[Drone] PDU connected (new).");
-        } else {
-            console.log("[Drone] PDU already connected, reuse.");
+            console.error("[Drone] PDU connect failed.");
+            return;
         }
 
         // この Drone 的には「PDU 経由で制御できる状態」になったので true

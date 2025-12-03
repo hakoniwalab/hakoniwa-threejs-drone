@@ -21,7 +21,9 @@ const loader = createGltfLoader(THREE);
 let orbitCam = null;
 let drones = [];
 const keyState = {};              // キーボード状態
-
+export function getDrones() {
+  return drones;
+}
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);

@@ -10,28 +10,230 @@
       height: 100%;
       overflow: hidden;
       background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   sans-serif;
     }
+
+    #main-container {
+      display: flex;
+      height: 100%;
+      width: 100%;
+    }
+
+    #panel {
+      width: 260px;
+      background-color: #f0f0f0;
+      padding: 10px;
+      box-sizing: border-box;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+    }
+
+    #panel h3 {
+      margin: 12px 0 6px;
+      font-size: 14px;
+    }
+
+    #panel button {
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    #viewer-container {
+      flex: 1;
+      background: #000;
+    }
+
     #three-root {
       width: 100%;
       height: 100%;
     }
+
+    .prop-box {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f9f9f9;
+      padding: 6px 8px;
+      margin-top: 10px;
+    }
+    .prop-box h4 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .prop-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .prop-table td {
+      padding: 2px 4px;
+    }
+    .prop-table .label {
+      width: 40px;
+    }
+    .prop-table .value {
+      text-align: right;
+    }
   </style>
 </head>
 <body>
-<div id="three-root"></div>
+  <div id="main-container">
+    <!-- 左パネル -->
+    <div id="panel">
+      <button id="connect-btn">connect</button>
 
-<!-- ★ これは前と同じ -->
-<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      <div style="margin-top: 8px;">
+        <label for="ws-uri-input"><strong>WebSocket URI</strong></label><br>
+        <input
+          id="ws-uri-input"
+          type="text"
+          style="width: 100%;"
+          value="ws://127.0.0.1:8765"
+        >
+      </div>
+
+      <div style="margin-top: 8px;">
+        <label for="drone-select"><strong>Drone</strong></label><br>
+        <select id="drone-select" style="width: 100%;"></select>
+      </div>
+
+      <div style="margin-top: 4px;">
+        <label>
+          <input type="checkbox" id="follow-checkbox" checked>
+          Follow selected
+        </label>
+      </div>
+
+      <div class="prop-box">
+        <h4>Drone State (debug)</h4>
+        <table class="prop-table">
+          <tr><td class="label">x:</td><td class="value" id="prop-x"></td></tr>
+          <tr><td class="label">y:</td><td class="value" id="prop-y"></td></tr>
+          <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 右：Three.js -->
+    <div id="viewer-container">
+      <div id="three-root"></div>
+    </div>
+  </div>
+
+  <!-- ES module shims & importmap -->
+  <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
   }
-}
-</script>
+  </script>
 
-<!-- ★ 実際の処理は全部 app.js に -->
-<script type="module" src="./src/app.js"></script>
+  <!-- Three.js ビューア本体 (UI非依存) -->
+  <script type="module" src="./src/app.js"></script>
+
+  <!-- UI配線専用モジュール -->
+  <script type="module">
+    import { Hakoniwa } from './src/hakoniwa/hakoniwa-pdu.js';
+    import { getDrones } from "./src/app.js";
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const connectBtn = document.getElementById('connect-btn');
+      const droneSelect = document.getElementById("drone-select");
+      const stateX = document.getElementById('prop-x');
+      const stateY = document.getElementById('prop-y');
+      const stateZ = document.getElementById('prop-z');
+      function populateDroneSelect() {
+        const drones = getDrones();
+
+        // 一旦クリア
+        droneSelect.innerHTML = "";
+
+        drones.forEach((drone, index) => {
+          const opt = document.createElement("option");
+
+          // Drone に name があれば使う
+          // なければ ID (droneId) を使う
+          opt.value = drone.droneId ?? index;
+          opt.textContent = drone.name ?? `${drone.droneId}`;
+
+          droneSelect.appendChild(opt);
+        });
+      }
+      // --- 選択中ドローンを取得 ---
+      function getSelectedDrone() {
+        const drones = getDrones();
+        if (!drones.length) return null;
+
+        const selId = droneSelect.value;
+        if (!selId) return drones[0];
+
+        const found = drones.find(d => String(d.droneId) === selId);
+        return found || drones[0];
+      }
+      // --- 状態パネルを定期更新 ---
+      function updateDroneStatePanel() {
+        const d = getSelectedDrone();
+        if (!d || !d.latestPose || !d.latestPose.rosPos) {
+          // データがまだ来てないときは空にしておく
+          stateX.textContent = "";
+          stateY.textContent = "";
+          stateZ.textContent = "";
+          return;
+        }
+
+        const [x, y, z] = d.latestPose.rosPos;
+        stateX.textContent = x.toFixed(2);
+        stateY.textContent = y.toFixed(2);
+        stateZ.textContent = z.toFixed(2);
+      }
+
+      if (!connectBtn) {
+        console.warn("connect-btn not found");
+        return;
+      }
+
+      connectBtn.addEventListener('click', async () => {
+        connectBtn.disabled = true;
+        connectBtn.textContent = "connecting...";
+        const wsUriInput = document.getElementById('ws-uri-input');
+
+        try {
+          const wsUri = (wsUriInput?.value || "").trim() || "ws://127.0.0.1:8765";
+          Hakoniwa.configure({
+            pdu_def_path: "/config/pdudef.json",   // 必要なら変更
+            ws_uri: wsUri,              // 別ホストにもできる
+            wire_version: "v1",
+          });
+          const ok = await Hakoniwa.connect();
+          if (ok) {
+            let drones = getDrones();
+            for (let i = 0; i < drones.length; i++) {
+              const drone = drones[i];
+              drone.initPdu();  // Drone ごとに PDU 初期化＋ポーリング開始
+            }
+
+            populateDroneSelect();
+            // 100msごとに状態更新
+            setInterval(updateDroneStatePanel, 100);      
+
+            connectBtn.textContent = "connected";
+          } else {
+            connectBtn.textContent = "connect failed";
+            connectBtn.disabled = false;
+          }
+        } catch (e) {
+          console.error(e);
+          connectBtn.textContent = "error";
+          connectBtn.disabled = false;
+        }
+
+      });
+    });
+  </script>
 </body>
 </html>
