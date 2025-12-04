@@ -181,6 +181,8 @@ export class Drone {
 
 
     _startPduPolling() {
+        const game_ctrl_error_max = 10;
+        let game_ctrl_error_counts = 0;
         if (this._pduTimerId) return;
 
         this._pduTimerId = setInterval(() => {
@@ -193,23 +195,32 @@ export class Drone {
             }
             // --- game controller ---
             const bufGame = pdu.read_pdu_raw_data(this.droneId, "hako_cmd_game");
-            if (bufGame) {
-                const gameCtrl = pduToJs_GameControllerOperation(bufGame);
-                const buttons = gameCtrl.button || gameCtrl.buttons || [];
+            if (bufGame && game_ctrl_error_counts < game_ctrl_error_max) {
+                try {
+                    const gameCtrl = pduToJs_GameControllerOperation(bufGame);
+                    const buttons = gameCtrl.button || gameCtrl.buttons || [];
 
-                let camPitch = 0;
+                    let camPitch = 0;
 
-                // 11: カメラのピッチアップ
-                if (buttons[11]) {
-                    camPitch -= 1;
+                    // 11: カメラのピッチアップ
+                    if (buttons[11]) {
+                        camPitch -= 1;
+                    }
+                    // 12: カメラのピッチダウン
+                    if (buttons[12]) {
+                        camPitch += 1;
+                    }
+
+                    // -1 / 0 / +1 のどれかが入る想定
+                    this._camPitchInput = camPitch;
+                } catch (e) {
+                    game_ctrl_error_counts++;
+                    if (game_ctrl_error_counts >= game_ctrl_error_max) {
+                        console.warn(
+                            "[Drone] Reached max error count for game controller input. Further errors will be suppressed."
+                        );
+                    }
                 }
-                // 12: カメラのピッチダウン
-                if (buttons[12]) {
-                    camPitch += 1;
-                }
-
-                // -1 / 0 / +1 のどれかが入る想定
-                this._camPitchInput = camPitch;
             }
             // --- motor ---
             const bufMotor = pdu.read_pdu_raw_data(this.droneId, "motor");
