@@ -133,9 +133,6 @@
   }
   </script>
 
-  <!-- Three.js ビューア本体 (UI非依存) -->
-  <script type="module" src="./src/app.js"></script>
-
   <!-- UI配線専用モジュール -->
   <script type="module">
     import { Hakoniwa } from './src/hakoniwa/hakoniwa-pdu.js';
@@ -234,6 +231,13 @@
 
       });
     });
+    import { main } from "./src/app.js";
+
+    const droneConfigPath =
+      document.getElementById('drone-config-input')?.value
+      || "/config/drone_config-1.json";
+
+    main(droneConfigPath).catch(e => console.error(e));  
   </script>
 </body>
 </html>

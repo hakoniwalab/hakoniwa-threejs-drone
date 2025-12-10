@@ -49,8 +49,8 @@ const tmpVec3 = new THREE.Vector3();
 // -------------------------------------------------------------
 //  main
 // -------------------------------------------------------------
-async function main() {
-  const cfg = await loadConfig();
+export async function main(url = "/config/drone_config-1.json") {
+  const cfg = await loadConfig(url);
 
   // Environment
   if (cfg.environments) {
@@ -165,4 +165,4 @@ window.addEventListener("keyup", (e) => {
   keyState[e.key] = false;
 });
 
-main().catch((e) => console.error(e));
+//main().catch((e) => console.error(e));
