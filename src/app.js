@@ -50,6 +50,7 @@ const tmpVec3 = new THREE.Vector3();
 //  main
 // -------------------------------------------------------------
 export async function main(url = "/config/drone_config-1.json") {
+  console.log("[Hakoniwa] main() start. loading config:", url);
   const cfg = await loadConfig(url);
 
   // Environment
@@ -59,6 +60,7 @@ export async function main(url = "/config/drone_config-1.json") {
 
   // Drone
   for (let i = 0; i < (cfg.drones ? cfg.drones.length : 0); i++) {
+    console.log("[Hakoniwa] Creating drone:", cfg.drones[i].name);
     const drone = await Drone.create(scene, loader, cfg.drones[i], {
       motorChannels: [0, 1, 2, 3],
       rotorScale: 200.0,
@@ -104,6 +106,18 @@ export async function main(url = "/config/drone_config-1.json") {
 
   scene.add(orbitCam.entity.object3d);
   animate();
+}
+
+export function focusDroneById(droneId, { snap = true } = {}) {
+  if (!orbitCam || !drones?.length) return false;
+
+  const target = drones.find(d => String(d.droneId) === String(droneId));
+  if (!target) return false;
+
+  orbitCam.setFollowTarget(target);
+  orbitCam.setMode("follow");
+
+  return true;
 }
 
 // -------------------------------------------------------------
