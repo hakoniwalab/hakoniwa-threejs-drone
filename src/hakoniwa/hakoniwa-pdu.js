@@ -4,9 +4,9 @@ import {
 } from '../index.js';
 
 let CONFIG = {
-  pdu_def_path: "/config/pdudef.json",
-  ws_uri: "ws://127.0.0.1:8765",
-  wire_version: "v1"
+  pdu_def_path: null,
+  ws_uri: null,
+  wire_version: null
 };
 
 export const Hakoniwa = (() => {
@@ -24,6 +24,9 @@ export const Hakoniwa = (() => {
 
     // PDUマネージャ初期化関数
     async function initializePduManager() {
+        if (!CONFIG.pdu_def_path) {
+            throw new Error("[Hakoniwa] CONFIG.pdu_def_path is not set.");
+        }
         // PDUマネージャ初期化
         const websocketCommunicationService = new WebSocketCommunicationService(CONFIG.wire_version);
         const pduManager = new PduManager({ wire_version: CONFIG.wire_version });
@@ -34,6 +37,14 @@ export const Hakoniwa = (() => {
 
     async function connect() {
         if (isConnected) return true;
+        if (!CONFIG.ws_uri) {
+            console.error("[Hakoniwa] CONFIG.ws_uri is not set.");
+            return false;
+        }
+        if (!CONFIG.wire_version) {
+            console.error("[Hakoniwa] CONFIG.wire_version is not set.");
+            return false;
+        }
 
         pduManager = await initializePduManager();
         if (!pduManager) return false;
@@ -58,9 +69,10 @@ export const Hakoniwa = (() => {
 
     function withPdu(fn) {
         if (pduManager) {
-            fn(pduManager);
+            return fn(pduManager);
         } else {
             console.warn("[Hakoniwa] pduManager is not connected.");
+            return null;
         }
     }
 

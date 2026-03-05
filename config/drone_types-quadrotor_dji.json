@@ -1,0 +1,73 @@
+{
+  "quadrotor_dji": {
+    "model": {
+      "model_path": "/assets/local_models/drone.glb",
+      "pos": [0, 0, 0.01],
+      "hpr": [0, -90, 180]
+    },
+    "rotors": [
+      {
+        "name": "drone_rotor1",
+        "model": {
+          "model_path": "/assets/local_models/prop-2.glb",
+          "pos": [0.0, 0.0, 0.0],
+          "hpr": [0, -90, 0]
+        },
+        "pos": [0.065, 0.055, 0.0],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor2",
+        "model": {
+          "model_path": "/assets/local_models/prop-1.glb",
+          "pos": [0.0, 0.0, 0.0],
+          "hpr": [0, -90, 0]
+        },
+        "pos": [0.065, -0.055, 0.0],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor3",
+        "model": {
+          "model_path": "/assets/local_models/prop-1.glb",
+          "pos": [0.0, 0.0, 0.0],
+          "hpr": [0, -90, 0]
+        },
+        "pos": [-0.025, -0.055, 0.0],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor4",
+        "model": {
+          "model_path": "/assets/local_models/prop-1.glb",
+          "pos": [0.0, 0.0, 0.0],
+          "hpr": [0, -90, 0]
+        },
+        "pos": [-0.025, 0.055, 0.0],
+        "hpr": [0, 0, 0]
+      }
+    ],
+    "cameras": [
+      {
+        "name": "front_camera",
+        "pos": [0.1, 0.0, 0.01],
+        "hpr": [0, 0, 0],
+        "fov": 90,
+        "near": 0.1,
+        "far": 1000,
+        "window": {
+          "x": 0.69,
+          "y": 0.69,
+          "width": 0.3,
+          "height": 0.3
+        },
+        "sort": 20,
+        "model": {
+          "model_path": "/assets/local_models/camera.glb",
+          "pos": [0.0, 0.0, 0.0],
+          "hpr": [0, 90, 0]
+        }
+      }
+    ]
+  }
+}

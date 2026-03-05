@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "format": "compact",
+  "environments": [
+    {
+      "name": "town",
+      "model": "assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
+      "pos": [0, 0, -15.04],
+      "hpr": [0, 0, 180]
+    }
+  ],
+  "main_camera": {
+    "fov": 90,
+    "near": 0.1,
+    "far": 20000,
+    "initialMode": "fixed",
+    "followDistance": 1.0,
+    "followLerpPos": 8.0,
+    "followLerpTarget": 10.0,
+    "followToggleKey": "c",
+    "position": [-0.3, 0.0, 0.1],
+    "target": "Drone"
+  },
+  "droneTypesPath": "/config/drone_types-quadrotor_dji.json",
+  "drones": [
+    {
+      "name": "Drone",
+      "type": "quadrotor_dji",
+      "pos": [0.0, 0.0, 0.0],
+      "hpr": [0.0, 0.0, 0.0]
+    }
+  ]
+}

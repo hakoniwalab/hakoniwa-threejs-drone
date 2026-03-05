@@ -4,7 +4,7 @@
   "environments": [
     {
       "name": "floor",
-      "model": "assets/models/mapviewer-floor.glb",
+      "model": "assets/models/base-floor.glb",
       "pos": [0, 0, -0.01],
       "hpr": [0, 0, 180]
     }
@@ -21,11 +21,11 @@
     "position": [-0.3, 0.0, 0.1],
     "target": "Drone"
   },
-  "droneTypesPath": "/config/drone_types-quadrotor_mapviewer.json",
+  "droneTypesPath": "/config/drone_types-quadrotor_base.json",
   "drones": [
     {
       "name": "Drone",
-      "type": "quadrotor_mapviewer",
+      "type": "quadrotor_base",
       "pos": [0.0, 0.0, 0.0],
       "hpr": [0.0, 0.0, 0.0]
     }

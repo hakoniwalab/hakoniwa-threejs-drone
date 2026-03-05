@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "three": {
+    "sceneConfigPath": "/config/drone_config-compact-1.json"
+  },
+  "pdu": {
+    "pduDefPath": "/config/pdudef.json",
+    "wsUri": "ws://127.0.0.1:8765",
+    "wireVersion": "v2"
+  },
+  "ui": {
+    "statePanelIntervalMsec": 100,
+    "enableAttachedCameras": true,
+    "enableMainCameraMouseControl": true
+  },
+  "stateInput": {
+    "mode": "fleets",
+    "fleets": {
+      "roleMap": {
+        "visual_state_array": "hako_msgs/DroneVisualStateArray"
+      }
+    }
+  }
+}

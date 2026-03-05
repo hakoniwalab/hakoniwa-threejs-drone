@@ -135,17 +135,26 @@
 
   <!-- UI配線専用モジュール -->
   <script type="module">
-    import { Hakoniwa } from './src/hakoniwa/hakoniwa-pdu.js';
-    import { getDrones } from "./src/app.js";
+    import { createDroneViewer } from "./src/public/drone_viewer.js";
+    import { loadViewerConfig } from "./src/viewer_config_loader.js";
+
+    const viewer = createDroneViewer();
+
+    function getDronesFromViewer() {
+      return viewer.getDrones();
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       const connectBtn = document.getElementById('connect-btn');
       const droneSelect = document.getElementById("drone-select");
+      const followCheckbox = document.getElementById("follow-checkbox");
+      const wsUriInput = document.getElementById('ws-uri-input');
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
       const stateZ = document.getElementById('prop-z');
+
       function populateDroneSelect() {
-        const drones = getDrones();
+        const drones = getDronesFromViewer();
 
         // 一旦クリア
         droneSelect.innerHTML = "";
@@ -160,10 +169,21 @@
 
           droneSelect.appendChild(opt);
         });
+        if (droneSelect.options.length > 0 && droneSelect.selectedIndex < 0) {
+          droneSelect.selectedIndex = 0;
+        }
+      }
+      function applyFollowSelectedIfEnabled() {
+        if (!followCheckbox?.checked) {
+          return;
+        }
+        const selectedId = droneSelect?.value;
+        if (!selectedId) return;
+        viewer.focusDroneById(selectedId);
       }
       // --- 選択中ドローンを取得 ---
       function getSelectedDrone() {
-        const drones = getDrones();
+        const drones = getDronesFromViewer();
         if (!drones.length) return null;
 
         const selId = droneSelect.value;
@@ -193,30 +213,41 @@
         console.warn("connect-btn not found");
         return;
       }
+      let loadedViewerConfig = null;
+      let statePanelIntervalMsec = 100;
+      loadViewerConfig()
+        .then(async ({ configUrl, config }) => {
+          loadedViewerConfig = config;
+          statePanelIntervalMsec = config.ui?.statePanelIntervalMsec ?? 100;
+          viewer.configure(config);
+          if (wsUriInput) {
+            wsUriInput.value = config.pdu.wsUri;
+          }
+          await viewer.initialize();
+          populateDroneSelect();
+          console.log("[DroneViewer] loaded viewer config:", configUrl, config);
+        })
+        .catch((e) => {
+          console.error(e);
+        });
 
       connectBtn.addEventListener('click', async () => {
         connectBtn.disabled = true;
         connectBtn.textContent = "connecting...";
-        const wsUriInput = document.getElementById('ws-uri-input');
 
         try {
-          const wsUri = (wsUriInput?.value || "").trim() || "ws://127.0.0.1:8765";
-          Hakoniwa.configure({
-            pdu_def_path: "/config/pdudef.json",   // 必要なら変更
-            ws_uri: wsUri,              // 別ホストにもできる
-            wire_version: "v1",
+          const defaultWsUri = loadedViewerConfig?.pdu?.wsUri ?? "ws://127.0.0.1:8765";
+          const wsUri = (wsUriInput?.value || "").trim() || defaultWsUri;
+          const ok = await viewer.connectPdu({
+            wsUri: wsUri,
           });
-          const ok = await Hakoniwa.connect();
           if (ok) {
-            let drones = getDrones();
-            for (let i = 0; i < drones.length; i++) {
-              const drone = drones[i];
-              drone.initPdu();  // Drone ごとに PDU 初期化＋ポーリング開始
-            }
+            await viewer.initDronePdu();
 
             populateDroneSelect();
+            applyFollowSelectedIfEnabled();
             // 100msごとに状態更新
-            setInterval(updateDroneStatePanel, 100);      
+            setInterval(updateDroneStatePanel, statePanelIntervalMsec);
 
             connectBtn.textContent = "connected";
           } else {
@@ -230,14 +261,22 @@
         }
 
       });
+
+      if (droneSelect) {
+        droneSelect.addEventListener("change", () => {
+          applyFollowSelectedIfEnabled();
+        });
+      }
+      if (followCheckbox) {
+        followCheckbox.addEventListener("change", () => {
+          const enabled = !!followCheckbox.checked;
+          viewer.setFollowSelectedEnabled(enabled);
+          if (enabled) {
+            applyFollowSelectedIfEnabled();
+          }
+        });
+      }
     });
-    import { main } from "./src/app.js";
-
-    const droneConfigPath =
-      document.getElementById('drone-config-input')?.value
-      || "/config/drone_config-1.json";
-
-    main(droneConfigPath).catch(e => console.error(e));  
   </script>
 </body>
 </html>

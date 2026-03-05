@@ -19,6 +19,7 @@ export class OrbitCamera {
       followLerpPos = 8.0,         // 位置の追従スピード
       followLerpTarget = 10.0,     // ターゲットの追従スピード
       followToggleKey = "c",       // モード切り替えキー
+      mouseEnabled = true,
     } = options;
 
     this.entity = new RenderEntity("OrbitCamera");
@@ -39,6 +40,7 @@ export class OrbitCamera {
     this.controls.rotateSpeed = 0.8;
     this.controls.zoomSpeed = 1.0;
     this.controls.panSpeed = 0.8;
+    this.controls.enabled = !!mouseEnabled;
     this.controls.update();
 
     // --- 追従状態 ---
@@ -139,5 +141,9 @@ export class OrbitCamera {
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
     this.controls.dispose();
+  }
+
+  setMouseControlEnabled(enabled) {
+    this.controls.enabled = !!enabled;
   }
 }

@@ -1,12 +1,6 @@
 // src/drone.js
 import * as THREE from "three"; 
 import { RenderEntity } from "./render_entity.js";
-import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
-import { pduToJs_Twist } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
-import { pduToJs_HakoHilActuatorControls } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
-import { pduToJs_GameControllerOperation } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_msgs/pdu_conv_GameControllerOperation.js";
-
-const rad2deg = (r) => r * 180.0 / Math.PI;
 
 export class Drone {
     constructor(scene, loader, cfg, {
@@ -18,14 +12,11 @@ export class Drone {
         this.loader = loader;
         this.cfg = cfg;
 
-        // PDU 関連
+        // 表示更新パラメータ
         this.droneId = cfg.name;;
         this.motorChannels = motorChannels;
         this.rotorScale = rotorScale;
         this.pduPollIntervalMs = pduPollIntervalMs;
-
-        this.pduConnected = false;
-        this._pduTimerId = null;
 
         // 描画用
         this.root = null;
@@ -35,8 +26,6 @@ export class Drone {
         // 状態
         this.latestPose = null;      // { rosPos, rosRpyDeg }
         this.rotorSpeed = 0;         // [rad/s]
-        this._rotorHist = [];        // { t, speed }[]
-        this._rotorWindowSec = 1.0;  // [sec]
 
         // ★ 小窓用カメラ群（Drone に紐づく）
         // [{ entity: RenderEntity, camera: THREE.PerspectiveCamera,
@@ -153,135 +142,17 @@ export class Drone {
         this.root = root;
     }
 
-    // ---------- init PDU & polling ----------
-    async initPdu() {
-        // ① すでに接続済みかチェック
-        const state = Hakoniwa.getConnectionState
-            ? Hakoniwa.getConnectionState()
-            : { isConnected: false };
-
-        if (!state.isConnected) {
-            console.error("[Drone] PDU connect failed.");
-            return;
+    // StateSource からの適用用API（PDU読み込み責務は持たない）
+    applyState({ rosPos, rosRpyDeg, rotorSpeedRadPerSec } = {}) {
+        if (rosPos && rosRpyDeg) {
+            this.latestPose = {
+                rosPos: [...rosPos],
+                rosRpyDeg: [...rosRpyDeg],
+            };
         }
-
-        // この Drone 的には「PDU 経由で制御できる状態」になったので true
-        this.pduConnected = true;
-
-        // ② この Drone 用の PDU declare は毎機ごとにやって OK
-        await Hakoniwa.withPdu(async (pdu) => {
-            await pdu.declare_pdu_for_read(this.droneId, "pos");
-            await pdu.declare_pdu_for_read(this.droneId, "motor");
-            await pdu.declare_pdu_for_read(this.droneId, "hako_cmd_game");
-        });
-
-        // ③ この Drone 専用のポーリング開始
-        this._startPduPolling();
-    }
-
-
-    _startPduPolling() {
-        const game_ctrl_error_max = 10;
-        let game_ctrl_error_counts = 0;
-        if (this._pduTimerId) return;
-
-        this._pduTimerId = setInterval(() => {
-            Hakoniwa.withPdu((pdu) => {
-            // --- pos ---
-            const bufPos = pdu.read_pdu_raw_data(this.droneId, "pos");
-            if (bufPos) {
-                const twist = pduToJs_Twist(bufPos);
-                this._setPoseFromPdu(twist);
-            }
-            // --- game controller ---
-            const bufGame = pdu.read_pdu_raw_data(this.droneId, "hako_cmd_game");
-            if (bufGame && game_ctrl_error_counts < game_ctrl_error_max) {
-                try {
-                    const gameCtrl = pduToJs_GameControllerOperation(bufGame);
-                    const buttons = gameCtrl.button || gameCtrl.buttons || [];
-
-                    let camPitch = 0;
-
-                    // 11: カメラのピッチアップ
-                    if (buttons[11]) {
-                        camPitch -= 1;
-                    }
-                    // 12: カメラのピッチダウン
-                    if (buttons[12]) {
-                        camPitch += 1;
-                    }
-
-                    // -1 / 0 / +1 のどれかが入る想定
-                    this._camPitchInput = camPitch;
-                } catch (e) {
-                    game_ctrl_error_counts++;
-                    if (game_ctrl_error_counts >= game_ctrl_error_max) {
-                        console.warn(
-                            "[Drone] Reached max error count for game controller input. Further errors will be suppressed."
-                        );
-                    }
-                }
-            }
-            // --- motor ---
-            const bufMotor = pdu.read_pdu_raw_data(this.droneId, "motor");
-            if (!bufMotor) return;
-
-            const msg = pduToJs_HakoHilActuatorControls(bufMotor);
-            const controls = msg.controls;
-            if (!controls || controls.length === 0) return;
-
-            let sumDuty = 0;
-            let count = 0;
-            for (const idx of this.motorChannels) {
-                if (idx < controls.length) {
-                sumDuty += controls[idx];
-                count++;
-                }
-            }
-            if (count === 0) return;
-
-            const avgDutyNow = sumDuty / count;
-            const nowSec = performance.now() / 1000.0;
-            this._addMotorDutySample(avgDutyNow, nowSec);
-            });
-        }, this.pduPollIntervalMs);
-    }
-
-    // ---------- internal PDU setters ----------
-
-    _setPoseFromPdu(twistMsg) {
-    const x_ros = twistMsg.linear.x;
-    const y_ros = twistMsg.linear.y;
-    const z_ros = twistMsg.linear.z;
-    const roll  = twistMsg.angular.x;
-    const pitch = twistMsg.angular.y;
-    const yaw   = twistMsg.angular.z;
-
-    this.latestPose = {
-        rosPos: [x_ros, y_ros, z_ros],
-        rosRpyDeg: [
-        rad2deg(roll),
-        rad2deg(pitch),
-        rad2deg(yaw),
-        ],
-    };
-    }
-
-    _addMotorDutySample(avgDutyNow, nowSec) {
-    const speedNow = avgDutyNow * this.rotorScale;
-
-    this._rotorHist.push({ t: nowSec, speed: speedNow });
-
-    while (
-        this._rotorHist.length > 0 &&
-        nowSec - this._rotorHist[0].t > this._rotorWindowSec
-    ) {
-        this._rotorHist.shift();
-    }
-
-    const sum = this._rotorHist.reduce((a, v) => a + v.speed, 0);
-    this.rotorSpeed =
-        this._rotorHist.length > 0 ? sum / this._rotorHist.length : 0;
+        if (typeof rotorSpeedRadPerSec === "number") {
+            this.rotorSpeed = rotorSpeedRadPerSec;
+        }
     }
 
     // ---------- per-frame update ----------
@@ -292,8 +163,8 @@ export class Drone {
      * - 非接続中：WASD + jkl でデバッグ操作
      */
     update(dt, keyState) {
-        if (this.pduConnected) {
-            this._updateFromPdu(dt);
+        if (this.latestPose) {
+            this._updateFromState(dt);
         } else {
             this._updateDebug(dt, keyState);
         }
@@ -314,7 +185,7 @@ export class Drone {
         }
     }
 
-    _updateFromPdu(dt) {
+    _updateFromState(dt) {
         if (!this.latestPose) return;
 
         const { rosPos, rosRpyDeg } = this.latestPose;

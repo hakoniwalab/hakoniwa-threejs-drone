@@ -20,9 +20,28 @@ const loader = createGltfLoader(THREE);
 
 let orbitCam = null;
 let drones = [];
+let beforeDronesUpdateHook = null;
+const runtimeOptions = {
+  enableAttachedCameras: true,
+  enableMainCameraMouseControl: true,
+};
 const keyState = {};              // キーボード状態
 export function getDrones() {
   return drones;
+}
+export function setBeforeDronesUpdateHook(hookFn) {
+  beforeDronesUpdateHook = typeof hookFn === "function" ? hookFn : null;
+}
+export function setViewerRuntimeOptions(options = {}) {
+  if (typeof options.enableAttachedCameras === "boolean") {
+    runtimeOptions.enableAttachedCameras = options.enableAttachedCameras;
+  }
+  if (typeof options.enableMainCameraMouseControl === "boolean") {
+    runtimeOptions.enableMainCameraMouseControl = options.enableMainCameraMouseControl;
+  }
+  if (orbitCam) {
+    orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
+  }
 }
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -49,7 +68,7 @@ const tmpVec3 = new THREE.Vector3();
 // -------------------------------------------------------------
 //  main
 // -------------------------------------------------------------
-export async function main(url = "/config/drone_config-1.json") {
+export async function main(url = "/config/drone_config-compact-1.json") {
   console.log("[Hakoniwa] main() start. loading config:", url);
   const cfg = await loadConfig(url);
 
@@ -98,10 +117,13 @@ export async function main(url = "/config/drone_config-1.json") {
       followLerpPos: mc.followLerpPos ?? 8.0,
       followLerpTarget: mc.followLerpTarget ?? 10.0,
       followToggleKey: mc.followToggleKey ?? "c",
+      mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
 
   } else {
-    orbitCam = new OrbitCamera(renderer);
+    orbitCam = new OrbitCamera(renderer, {
+      mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
+    });
   }
 
   scene.add(orbitCam.entity.object3d);
@@ -120,6 +142,12 @@ export function focusDroneById(droneId, { snap = true } = {}) {
   return true;
 }
 
+export function setCameraFollowEnabled(enabled) {
+  if (!orbitCam) return false;
+  orbitCam.setMode(enabled ? "follow" : "fixed");
+  return true;
+}
+
 // -------------------------------------------------------------
 //  loop
 // -------------------------------------------------------------
@@ -129,6 +157,10 @@ function animate() {
   let dt = clock.getDelta();
   if (dt < 0.0001) dt = 0.0001; // ほぼ0は 0.1ms とみなす
   if (dt > 0.05)   dt = 0.05;   // 50ms(=20fps) より大きいのは固定
+
+  if (beforeDronesUpdateHook) {
+    beforeDronesUpdateHook(dt);
+  }
 
   for (let i = 0; i < drones.length; i++) {
     drones[i].update(dt, keyState);
@@ -152,8 +184,10 @@ function animate() {
     renderer.render(scene, orbitCam.camera);
 
     // ② 小窓たち（AttachCamera 相当）
-    for (const d of drones) {
-      d.renderAttachedCameras(renderer, scene, w, h);
+    if (runtimeOptions.enableAttachedCameras) {
+      for (const d of drones) {
+        d.renderAttachedCameras(renderer, scene, w, h);
+      }
     }
   }
 }

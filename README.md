@@ -16,8 +16,16 @@ three.js ベースの Hakoniwa ドローン可視化ビューアです。
 未指定時は `/config/viewer-config-legacy.json` を使用します。
 
 例:
-- legacy: `index.html?viewerConfigPath=/config/viewer-config-legacy.json`
+- legacy(dji): `index.html?viewerConfigPath=/config/viewer-config-legacy.json`
 - fleets: `index.html?viewerConfigPath=/config/viewer-config-fleets.json`
+
+URLクエリ上書き（任意）:
+- `wsUri`: WebSocket接続先を上書き
+- `wireVersion`: `v1` / `v2` を上書き
+- `pduDefPath`: PDU定義ファイルを上書き（相対/絶対URL可）
+
+例:
+- `index.html?viewerConfigPath=/config/viewer-config-legacy.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2`
 
 ## 主要設定
 
@@ -39,17 +47,36 @@ three.js ベースの Hakoniwa ドローン可視化ビューアです。
 
 ## モデルタイプ（並存運用）
 
-既存タイプと別に、`map-viewer` 由来モデルを `quadrotor_mapviewer` として同梱しています。  
-既存 `quadrotor_basic` はそのまま残しており、用途に応じて scene config で切替できます。
+モデルタイプは `base` と `dji` を併存運用します。
 
-- 既存タイプ:
-  - `config/drone_types-quadrotor_basic.json`
-- map-viewer タイプ:
-  - `config/drone_types-quadrotor_mapviewer.json`
+- `base`（デフォルト）:
+  - type: `quadrotor_base`
+  - types file: `config/drone_types-quadrotor_base.json`
+- `dji`（従来モデル / ローカル運用）:
+  - type: `quadrotor_dji`
+  - types file: `config/drone_types-quadrotor_dji.json`
 
 サンプル scene config:
-- `config/drone_config-compact-1.json`（既存）
-- `config/drone_config-compact-mapviewer-1.json`（map-viewer モデル）
+- `config/drone_config-compact-1.json`（デフォルト: base）
+- `config/drone_config-compact-base-1.json`（base 明示）
+- `config/drone_config-compact-dji-1.json`（dji）
+
+ローカル運用ルール:
+- `assets/models/` は base 用のみをコミット対象にする
+- `dji` などのローカルモデルは `assets/local_models/` に配置する
+
+`assets/local_models` を使う手順:
+1. ディレクトリ作成: `mkdir -p assets/local_models`
+2. 手元モデルを配置（例）:
+   - `assets/local_models/drone.glb`
+   - `assets/local_models/prop-1.glb`
+   - `assets/local_models/prop-2.glb`
+   - `assets/local_models/camera.glb`
+   - `assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb`
+3. `dji` 設定を使う:
+   - scene config: `config/drone_config-compact-dji-1.json`
+   - types: `config/drone_types-quadrotor_dji.json`（`/assets/local_models/...` を参照）
+4. 非コミット運用にしたい場合は `.gitignore` に `assets/local_models/` を追加
 
 ## UI 操作
 

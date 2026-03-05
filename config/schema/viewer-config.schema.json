@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hakoniwa.dev/schemas/viewer-config.schema.json",
+  "title": "Hakoniwa Threejs Viewer Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "three",
+    "pdu",
+    "stateInput"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "three": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sceneConfigPath"
+      ],
+      "properties": {
+        "sceneConfigPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pdu": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pduDefPath",
+        "wsUri"
+      ],
+      "properties": {
+        "pduDefPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wsUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wireVersion": {
+          "type": "string",
+          "default": "v2"
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "statePanelIntervalMsec": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "enableAttachedCameras": {
+          "type": "boolean",
+          "default": true
+        },
+        "enableMainCameraMouseControl": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "stateInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "legacy",
+            "fleets"
+          ]
+        },
+        "legacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "roleMap"
+          ],
+          "properties": {
+            "roleMap": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pos",
+                "motor"
+              ],
+              "properties": {
+                "pos": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "motor": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "fleets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "roleMap"
+          ],
+          "properties": {
+            "roleMap": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "visual_state_array"
+              ],
+              "properties": {
+                "visual_state_array": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "legacy"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "legacy"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "fleets"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fleets"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stateInput": {
+            "properties": {
+              "mode": {
+                "const": "fleets"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pdu": {
+            "required": [
+              "wireVersion"
+            ],
+            "properties": {
+              "wireVersion": {
+                "const": "v2"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

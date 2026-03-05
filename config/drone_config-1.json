@@ -2,7 +2,7 @@
   "environments": [
     {
       "name": "town",
-      "model": "assets/models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
+      "model": "assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
       "pos": [0, 0, -15.04],
       "hpr": [0, 0, 180]
     }
@@ -25,7 +25,7 @@
       "pos": [0.0, 0.0, 0.0],
       "hpr": [0.0, 0.0, 0.0],
       "model": {
-        "model_path": "/assets/models/drone.glb",
+        "model_path": "/assets/local_models/drone.glb",
         "pos": [0, 0, 0.01],
         "hpr": [0, -90, 180]
       },
@@ -33,7 +33,7 @@
         {
           "name": "drone_rotor1",
           "model": {
-            "model_path": "/assets/models/prop-2.glb",
+            "model_path": "/assets/local_models/prop-2.glb",
             "pos": [0.0, 0.0, 0.0],
             "hpr": [0, -90, 0]
           },
@@ -43,7 +43,7 @@
         {
           "name": "drone_rotor2",
           "model": {
-            "model_path": "/assets/models/prop-1.glb",
+            "model_path": "/assets/local_models/prop-1.glb",
             "pos": [0.0, 0.0, 0.0],
             "hpr": [0, -90, 0]
           },
@@ -53,7 +53,7 @@
         {
           "name": "drone_rotor3",
           "model": {
-            "model_path": "/assets/models/prop-1.glb",
+            "model_path": "/assets/local_models/prop-1.glb",
             "pos": [0.0, 0.0, 0.0],
             "hpr": [0, -90, 0]
           },
@@ -63,7 +63,7 @@
         {
           "name": "drone_rotor4",
           "model": {
-            "model_path": "/assets/models/prop-1.glb",
+            "model_path": "/assets/local_models/prop-1.glb",
             "pos": [0.0, 0.0, 0.0],
             "hpr": [0, -90, 0]
           },
@@ -87,7 +87,7 @@
           },
           "sort": 20,
           "model": {
-            "model_path": "/assets/models/camera.glb",
+            "model_path": "/assets/local_models/camera.glb",
             "pos": [0.0, 0.0, 0.0],
             "hpr": [0, 90, 0]
           }
