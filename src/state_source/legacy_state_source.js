@@ -2,6 +2,7 @@ import { IStateSource } from "./i_state_source.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_Twist } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/geometry_msgs/pdu_conv_Twist.js";
 import { pduToJs_HakoHilActuatorControls } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_mavlink_msgs/pdu_conv_HakoHilActuatorControls.js";
+import { validateCompactPdudef, loadPdutypeTable } from "./compact_pdudef_loader.js";
 
 const rad2deg = (r) => r * 180.0 / Math.PI;
 
@@ -16,26 +17,23 @@ export class LegacyStateSource extends IStateSource {
     this.rotorScale = options.rotorScale ?? 200.0;
   }
 
-  collectRoleCandidatesFromRobot(robotDef, rolePdutype) {
-    const candidateNames = [];
+  collectRoleCandidatesFromRobot(robotDef, rolePdutype, pdutypeTable) {
+    const robotPdutypes = pdutypeTable.get(robotDef?.pdutypes_id) ?? [];
+    const candidates = [];
     const seen = new Set();
-    const collect = (arr) => {
-      if (!Array.isArray(arr)) return;
-      for (const pdu of arr) {
-        if (pdu?.type !== rolePdutype) continue;
-        if (!pdu?.org_name) continue;
-        if (seen.has(pdu.org_name)) continue;
-        seen.add(pdu.org_name);
-        candidateNames.push(pdu.org_name);
-      }
-    };
-    collect(robotDef?.shm_pdu_writers);
-    collect(robotDef?.shm_pdu_readers);
-    return candidateNames;
+    for (const pdu of robotPdutypes) {
+      if (pdu?.type !== rolePdutype) continue;
+      const pduName = pdu?.name ?? pdu?.org_name;
+      if (!pduName) continue;
+      if (seen.has(pduName)) continue;
+      seen.add(pduName);
+      candidates.push(pduName);
+    }
+    return candidates;
   }
 
-  resolveRoleName(robotDef, roleLabel, rolePdutype) {
-    const candidates = this.collectRoleCandidatesFromRobot(robotDef, rolePdutype);
+  resolveRoleName(robotDef, roleLabel, rolePdutype, pdutypeTable) {
+    const candidates = this.collectRoleCandidatesFromRobot(robotDef, rolePdutype, pdutypeTable);
     if (candidates.length === 0) {
       throw new Error(`[LegacyStateSource] role '${roleLabel}' not found in pdudef for robot='${robotDef?.name}' type='${rolePdutype}'.`);
     }
@@ -47,29 +45,6 @@ export class LegacyStateSource extends IStateSource {
       throw new Error(`[LegacyStateSource] role '${roleLabel}' is ambiguous in pdudef for robot='${robotDef?.name}' type='${rolePdutype}': ${candidates.join(", ")}`);
     }
     return candidates[0];
-  }
-
-  validateCompactPdudef(pdudef) {
-    const robots = Array.isArray(pdudef?.robots) ? pdudef.robots : [];
-    if (robots.length === 0) {
-      throw new Error("[LegacyStateSource] compact pdudef validation failed: robots[] is required.");
-    }
-    for (const robot of robots) {
-      if (!robot?.name) {
-        throw new Error("[LegacyStateSource] compact pdudef validation failed: robots[].name is required.");
-      }
-      const readers = robot?.shm_pdu_readers;
-      const writers = robot?.shm_pdu_writers;
-      if (!Array.isArray(readers) || !Array.isArray(writers)) {
-        throw new Error(`[LegacyStateSource] compact pdudef validation failed: robot='${robot.name}' requires shm_pdu_readers/writers arrays.`);
-      }
-      for (const pdu of [...readers, ...writers]) {
-        if (!pdu?.type || !pdu?.org_name) {
-          throw new Error(`[LegacyStateSource] compact pdudef validation failed: robot='${robot.name}' has invalid pdu entry (type/org_name required).`);
-        }
-      }
-    }
-    return robots;
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -84,11 +59,12 @@ export class LegacyStateSource extends IStateSource {
       throw new Error(`[LegacyStateSource] failed to load pdudef: ${pduDefPath}`);
     }
     const pdudef = await res.json();
-    const robots = this.validateCompactPdudef(pdudef);
+    const compactPdudef = validateCompactPdudef(pdudef, "LegacyStateSource");
+    const pdutypeTable = await loadPdutypeTable(compactPdudef, pduDefPath, "LegacyStateSource");
     this.bindingsByDrone.clear();
-    for (const robot of robots) {
-      const posPduName = this.resolveRoleName(robot, "pos", this.roleMap.pos);
-      const motorPduName = this.resolveRoleName(robot, "motor", this.roleMap.motor);
+    for (const robot of compactPdudef.robots) {
+      const posPduName = this.resolveRoleName(robot, "pos", this.roleMap.pos, pdutypeTable);
+      const motorPduName = this.resolveRoleName(robot, "motor", this.roleMap.motor, pdutypeTable);
       this.bindingsByDrone.set(robot.name, {
         posPduName,
         motorPduName,
