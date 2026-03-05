@@ -34,18 +34,63 @@ function isCompactSceneConfig(cfg) {
   return !!cfg && typeof cfg === "object" && !!cfg.droneTypesPath && Array.isArray(cfg.drones);
 }
 
+function resolveUrlFromBase(pathValue, baseUrl) {
+  if (typeof pathValue !== "string" || pathValue.length === 0) {
+    return pathValue;
+  }
+  return new URL(pathValue, baseUrl).toString();
+}
+
+function normalizeEnvironmentModelPaths(cfg, sceneConfigUrl) {
+  if (!Array.isArray(cfg.environments)) {
+    return;
+  }
+  for (const env of cfg.environments) {
+    if (env && typeof env.model === "string") {
+      env.model = resolveUrlFromBase(env.model, sceneConfigUrl);
+    }
+  }
+}
+
+function normalizeDroneModelPaths(droneCfg, droneTypesUrl) {
+  if (!droneCfg || typeof droneCfg !== "object") {
+    return;
+  }
+  if (droneCfg.model?.model_path) {
+    droneCfg.model.model_path = resolveUrlFromBase(droneCfg.model.model_path, droneTypesUrl);
+  }
+  if (Array.isArray(droneCfg.rotors)) {
+    for (const rotor of droneCfg.rotors) {
+      if (rotor?.model?.model_path) {
+        rotor.model.model_path = resolveUrlFromBase(rotor.model.model_path, droneTypesUrl);
+      }
+    }
+  }
+  if (Array.isArray(droneCfg.cameras)) {
+    for (const camera of droneCfg.cameras) {
+      if (camera?.model?.model_path) {
+        camera.model.model_path = resolveUrlFromBase(camera.model.model_path, droneTypesUrl);
+      }
+    }
+  }
+}
+
 async function loadDroneTypesFromPath(droneTypesPath, baseUrl) {
   const resolved = new URL(droneTypesPath, baseUrl).toString();
   const res = await fetch(resolved);
   if (!res.ok) {
     throw new Error(`Failed to load droneTypes: ${resolved}`);
   }
-  return await res.json();
+  return {
+    droneTypes: await res.json(),
+    droneTypesUrl: resolved,
+  };
 }
 
 async function normalizeCompactSceneConfig(cfg, baseUrl) {
   const normalized = deepClone(cfg);
-  const droneTypes = await loadDroneTypesFromPath(normalized.droneTypesPath, baseUrl);
+  normalizeEnvironmentModelPaths(normalized, baseUrl);
+  const { droneTypes, droneTypesUrl } = await loadDroneTypesFromPath(normalized.droneTypesPath, baseUrl);
 
   normalized.drones = (normalized.drones || []).map((instance) => {
     const typeId = instance.type ?? instance.droneType;
@@ -57,6 +102,7 @@ async function normalizeCompactSceneConfig(cfg, baseUrl) {
     delete expanded.type;
     delete expanded.droneType;
     expanded.resolvedType = typeId;
+    normalizeDroneModelPaths(expanded, droneTypesUrl);
     return expanded;
   });
 

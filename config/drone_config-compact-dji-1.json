@@ -4,7 +4,7 @@
   "environments": [
     {
       "name": "town",
-      "model": "assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
+      "model": "../assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb",
       "pos": [0, 0, -15.04],
       "hpr": [0, 0, 180]
     }
@@ -21,7 +21,7 @@
     "position": [-0.3, 0.0, 0.1],
     "target": "Drone"
   },
-  "droneTypesPath": "/config/drone_types-quadrotor_dji.json",
+  "droneTypesPath": "./drone_types-quadrotor_dji.json",
   "drones": [
     {
       "name": "Drone",

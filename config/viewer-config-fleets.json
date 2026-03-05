@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "three": {
-    "sceneConfigPath": "/config/drone_config-compact-1.json"
+    "sceneConfigPath": "./drone_config-compact-1.json"
   },
   "pdu": {
-    "pduDefPath": "/config/pdudef-fleets.json",
+    "pduDefPath": "./pdudef-fleets.json",
     "wsUri": "ws://127.0.0.1:8765",
     "wireVersion": "v2"
   },

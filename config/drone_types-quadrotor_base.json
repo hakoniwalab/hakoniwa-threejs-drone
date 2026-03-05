@@ -1,7 +1,7 @@
 {
   "quadrotor_base": {
     "model": {
-      "model_path": "/assets/models/base-drone-frame.glb",
+      "model_path": "../assets/models/base-drone-frame.glb",
       "pos": [0, 0, 0.01],
       "hpr": [0, 0, 180]
     },
@@ -9,7 +9,7 @@
       {
         "name": "drone_rotor1",
         "model": {
-          "model_path": "/assets/models/base-drone-prop.glb",
+          "model_path": "../assets/models/base-drone-prop.glb",
           "pos": [0.0, 0.0, 0.0],
           "hpr": [0, 0, 0]
         },
@@ -19,7 +19,7 @@
       {
         "name": "drone_rotor2",
         "model": {
-          "model_path": "/assets/models/base-drone-prop.glb",
+          "model_path": "../assets/models/base-drone-prop.glb",
           "pos": [0.0, 0.0, 0.0],
           "hpr": [0, 0, 0]
         },
@@ -29,7 +29,7 @@
       {
         "name": "drone_rotor3",
         "model": {
-          "model_path": "/assets/models/base-drone-prop.glb",
+          "model_path": "../assets/models/base-drone-prop.glb",
           "pos": [0.0, 0.0, 0.0],
           "hpr": [0, 0, 0]
         },
@@ -39,7 +39,7 @@
       {
         "name": "drone_rotor4",
         "model": {
-          "model_path": "/assets/models/base-drone-prop.glb",
+          "model_path": "../assets/models/base-drone-prop.glb",
           "pos": [0.0, 0.0, 0.0],
           "hpr": [0, 0, 0]
         },
@@ -63,7 +63,7 @@
         },
         "sort": 20,
         "model": {
-          "model_path": "/assets/models/base-drone-camera.glb",
+          "model_path": "../assets/models/base-drone-camera.glb",
           "pos": [0.0, 0.0, 0.0],
           "hpr": [0, 0, 180]
         }
