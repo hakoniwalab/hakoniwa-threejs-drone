@@ -129,7 +129,7 @@ v1.0 では以下だけを外部仕様にします。
     "sceneConfigPath": "/config/drone_config-compact-1.json"
   },
   "pdu": {
-    "pduDefPath": "/config/pdudef.json",
+    "pduDefPath": "/config/pdudef-fleets.json",
     "wsUri": "ws://127.0.0.1:8765",
     "wireVersion": "v2"
   },

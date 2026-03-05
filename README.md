@@ -19,6 +19,8 @@ three.js ベースの Hakoniwa ドローン可視化ビューアです。
 - legacy(dji): `index.html?viewerConfigPath=/config/viewer-config-legacy.json`
 - fleets: `index.html?viewerConfigPath=/config/viewer-config-fleets.json`
 
+fleets では compact pdudef（`/config/pdudef-fleets.json`）を使用します。
+
 URLクエリ上書き（任意）:
 - `wsUri`: WebSocket接続先を上書き
 - `wireVersion`: `v1` / `v2` を上書き
@@ -93,3 +95,43 @@ URLクエリ上書き（任意）:
 - 設計: `docs/design.md`
 - 作業計画: `docs/task.md`
 - scene config仕様: `docs/scene-config-spec.md`
+
+## fleets 結合手順（E2E）
+
+前提:
+- Hakoniwa 本体: `hakoniwa-drone-pro`
+- bridge: `hakoniwa-pdu-bridge-core`
+- threejs: このリポジトリ
+
+1. drone service 起動（`hakoniwa-drone-pro`）
+```bash
+./mac/mac-main_hako_drone_service config/drone/fleets/api-1.json config/pdudef/drone-pdudef-1.json
+```
+
+2. visual_state_publisher 起動（`hakoniwa-drone-pro`）
+```bash
+./src/cmake-build/assets/visual_state_publisher/drone_visual_state_publisher config/assets/visual_state_publisher/visual_state_publisher.json
+```
+
+3. web bridge 起動（`hakoniwa-pdu-bridge-core`）
+```bash
+./tools/run-web-bridge.bash \
+  --config-root config/web_bridge_fleets \
+  --node-name web_bridge_fleets_node1 \
+  --delta-time-step-usec 20000 \
+  --enable-ondemand
+```
+
+4. threejs を配信（`hakoniwa-threejs-drone`）
+```bash
+python -m http.server 8000
+```
+
+5. ブラウザで fleets viewer を開く
+```text
+http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2
+```
+
+確認ポイント:
+- ブラウザ console に `[FleetStateSource] visual_state_array channels:` が出る
+- connect 後、機体の位置・姿勢が更新される

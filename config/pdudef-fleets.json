@@ -1,0 +1,14 @@
+{
+  "paths": [
+    {
+      "id": "visual_state_type",
+      "path": "pdudef-fleets-pdutypes.json"
+    }
+  ],
+  "robots": [
+    {
+      "name": "DroneVisualStatePublisher",
+      "pdutypes_id": "visual_state_type"
+    }
+  ]
+}

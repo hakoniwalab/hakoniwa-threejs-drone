@@ -92,9 +92,22 @@
 - [x] README に利用方法（legacy/fleets）を追記
 - [x] 既存サンプル起動手順を維持
 - [ ] デバッグログを必要最小限に整理
+- [x] fleets 向け結合手順（drone_service / visual_state_publisher / web_bridge_fleets / browser URL）を README に明記
+
+## Bridge連携（fleets）
+
+- [x] `web_bridge_fleets` の comm 設定を現行スキーマ（protocol/impl_type/role）へ修正
+- [x] `web_bridge_fleets/bridge/bridge.json` を v2 形式へ統一
+- [x] endpoint 起動の固定ID依存を解消（`web_bridge_daemon` は `start_all/post_start_all` を使用）
+- [x] `config-root` 起点で `asset-config` を自動解決できるよう修正
+
+完了条件:
+- [x] `--config-root config/web_bridge_fleets` で bridge が起動できる
+- [x] fleets 経路で threejs 側の状態更新を確認できる
 
 ## 検証メモ（2026-03-05）
 
 - [x] `viewerConfigPath=/config/viewer-config-legacy.json` で接続・状態反映・機体追従を確認
 - [x] `viewerConfigPath=/config/viewer-config-fleets.json` で接続・状態反映・複数機体表示を確認
 - [x] legacy/fleets を切替して再接続してもクラッシュや描画停止がないことを確認
+- [x] `web_bridge_fleets` 起動時の endpoint 固定名問題を修正し、E2E 疎通を確認
