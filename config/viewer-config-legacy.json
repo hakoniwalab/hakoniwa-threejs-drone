@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "three": {
-    "sceneConfigPath": "./drone_config-compact-dji-1.json"
+    "sceneConfigPath": "./drone_config-compact-base-1.json"
   },
   "pdu": {
     "pduDefPath": "./pdudef.json",
