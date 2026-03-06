@@ -25,9 +25,16 @@ URLクエリ上書き（任意）:
 - `wsUri`: WebSocket接続先を上書き
 - `wireVersion`: `v1` / `v2` を上書き
 - `pduDefPath`: PDU定義ファイルを上書き（相対/絶対URL可）
+- `dynamicSpawn`: `true` / `false`
+- `templateDroneIndex`: テンプレートに使う機体index
+- `maxDynamicDrones`: 動的生成の上限機体数
+
+優先順位:
+- URLクエリ > viewer_config
 
 例:
 - `index.html?viewerConfigPath=/config/viewer-config-legacy.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2`
+- `index.html?viewerConfigPath=/config/viewer-config-fleets.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2&dynamicSpawn=true&templateDroneIndex=0&maxDynamicDrones=100`
 
 ## 主要設定
 
@@ -40,6 +47,9 @@ URLクエリ上書き（任意）:
 - `pdu.pduDefPath`: compact pdudef
 - `pdu.wsUri`: bridge WebSocket URI
 - `stateInput.mode`: `legacy` or `fleets`
+- `stateInput.fleets.dynamicSpawn`: 動的スポーン有効化
+- `stateInput.fleets.templateDroneIndex`: テンプレート機体index
+- `stateInput.fleets.maxDynamicDrones`: 動的スポーン最大機体数
 - `ui.enableAttachedCameras`: 小窓カメラ描画 ON/OFF
 - `ui.enableMainCameraMouseControl`: メインカメラのマウス操作 ON/OFF
 

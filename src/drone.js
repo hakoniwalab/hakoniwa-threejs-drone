@@ -49,6 +49,26 @@ export class Drone {
         const cfg = this.cfg;
         const root = new RenderEntity(cfg.name);
 
+        const brightenModelMaterials = (obj3d) => {
+            obj3d.traverse((obj) => {
+                if (!obj.isMesh || !obj.material) return;
+                const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                for (const m of mats) {
+                    if (!m) continue;
+                    if (typeof m.emissiveIntensity === "number") {
+                        m.emissive = new THREE.Color(0x2a2a2a);
+                        m.emissiveIntensity = 0.22;
+                    }
+                    if (typeof m.metalness === "number") {
+                        m.metalness = Math.min(m.metalness, 0.5);
+                    }
+                    if (typeof m.roughness === "number") {
+                        m.roughness = Math.max(m.roughness, 0.35);
+                    }
+                }
+            });
+        };
+
         // 本体モデル
         const modelObj = await new Promise((resolve, reject) => {
             this.loader.load(
@@ -58,6 +78,7 @@ export class Drone {
             reject
             );
         });
+        brightenModelMaterials(modelObj);
 
         const modelEnt = new RenderEntity(cfg.name + "_model");
         modelEnt.setAttachment(modelObj);

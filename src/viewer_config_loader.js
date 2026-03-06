@@ -31,6 +31,44 @@ function applyQueryOverrides(cfg, search, pageUrl) {
     overridden.pdu.pduDefPath = new URL(pduDefPath, pageUrl).toString();
   }
 
+  const dynamicSpawn = params.get("dynamicSpawn");
+  if (dynamicSpawn != null) {
+    const v = dynamicSpawn.toLowerCase();
+    if (v === "true" || v === "1") {
+      overridden.stateInput = overridden.stateInput ?? {};
+      overridden.stateInput.fleets = overridden.stateInput.fleets ?? {};
+      overridden.stateInput.fleets.dynamicSpawn = true;
+    } else if (v === "false" || v === "0") {
+      overridden.stateInput = overridden.stateInput ?? {};
+      overridden.stateInput.fleets = overridden.stateInput.fleets ?? {};
+      overridden.stateInput.fleets.dynamicSpawn = false;
+    } else {
+      throw new Error(`[ViewerConfigLoader] invalid dynamicSpawn query value: ${dynamicSpawn}`);
+    }
+  }
+
+  const templateDroneIndex = params.get("templateDroneIndex");
+  if (templateDroneIndex != null) {
+    const n = Number(templateDroneIndex);
+    if (!Number.isInteger(n) || n < 0) {
+      throw new Error(`[ViewerConfigLoader] invalid templateDroneIndex query value: ${templateDroneIndex}`);
+    }
+    overridden.stateInput = overridden.stateInput ?? {};
+    overridden.stateInput.fleets = overridden.stateInput.fleets ?? {};
+    overridden.stateInput.fleets.templateDroneIndex = n;
+  }
+
+  const maxDynamicDrones = params.get("maxDynamicDrones");
+  if (maxDynamicDrones != null) {
+    const n = Number(maxDynamicDrones);
+    if (!Number.isInteger(n) || n <= 0) {
+      throw new Error(`[ViewerConfigLoader] invalid maxDynamicDrones query value: ${maxDynamicDrones}`);
+    }
+    overridden.stateInput = overridden.stateInput ?? {};
+    overridden.stateInput.fleets = overridden.stateInput.fleets ?? {};
+    overridden.stateInput.fleets.maxDynamicDrones = n;
+  }
+
   return overridden;
 }
 

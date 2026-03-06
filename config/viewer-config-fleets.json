@@ -10,7 +10,7 @@
   },
   "ui": {
     "statePanelIntervalMsec": 100,
-    "enableAttachedCameras": true,
+    "enableAttachedCameras": false,
     "enableMainCameraMouseControl": true
   },
   "stateInput": {

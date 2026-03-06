@@ -15,6 +15,8 @@ export class FleetStateSource extends IStateSource {
     this.stateByDrone = new Map();
     this.visualStateChannels = [];
     this.declared = false;
+    this.startIndexBase = null; // auto-detect: 0-based or 1-based
+    this.startIndexBaseLogged = false;
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -88,7 +90,27 @@ export class FleetStateSource extends IStateSource {
   applyPacket(packet) {
     const drones = Array.isArray(packet?.drones) ? packet.drones : [];
     const validCount = Math.min(packet?.valid_count ?? drones.length, drones.length);
-    const startIndex = packet?.start_index ?? 0;
+    const rawStartIndex = packet?.start_index ?? 0;
+    const chunkIndex = packet?.chunk_index ?? 0;
+
+    if (this.startIndexBase == null && chunkIndex === 0) {
+      if (rawStartIndex === 0) {
+        this.startIndexBase = 0;
+      } else if (rawStartIndex === 1) {
+        this.startIndexBase = 1;
+      } else {
+        this.startIndexBase = 0;
+      }
+    }
+    const base = this.startIndexBase ?? 0;
+    const startIndex = Math.max(0, rawStartIndex - base);
+    if (!this.startIndexBaseLogged && this.startIndexBase != null) {
+      console.info(
+        `[FleetStateSource] start_index base detected: ${this.startIndexBase} (raw=${rawStartIndex}, chunk=${chunkIndex})`,
+      );
+      this.startIndexBaseLogged = true;
+    }
+
     for (let i = 0; i < validCount; i++) {
       const droneIndex = startIndex + i;
       const droneId = this.boundDroneIds[droneIndex];

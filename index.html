@@ -139,6 +139,8 @@
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
 
     const viewer = createDroneViewer();
+    // Debug helper for browser console inspection.
+    window.__hakoniwaViewer = viewer;
 
     function getDronesFromViewer() {
       return viewer.getDrones();

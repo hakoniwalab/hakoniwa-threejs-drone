@@ -36,6 +36,21 @@ function validateViewerConfig(config) {
     if (config.pdu?.wireVersion !== "v2") {
       throw new Error("[DroneViewer] fleets mode requires pdu.wireVersion=v2.");
     }
+    if (config.stateInput?.fleets?.dynamicSpawn != null && typeof config.stateInput.fleets.dynamicSpawn !== "boolean") {
+      throw new Error("[DroneViewer] stateInput.fleets.dynamicSpawn must be boolean.");
+    }
+    if (config.stateInput?.fleets?.templateDroneIndex != null) {
+      const n = config.stateInput.fleets.templateDroneIndex;
+      if (!Number.isInteger(n) || n < 0) {
+        throw new Error("[DroneViewer] stateInput.fleets.templateDroneIndex must be an integer >= 0.");
+      }
+    }
+    if (config.stateInput?.fleets?.maxDynamicDrones != null) {
+      const n = config.stateInput.fleets.maxDynamicDrones;
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error("[DroneViewer] stateInput.fleets.maxDynamicDrones must be an integer > 0.");
+      }
+    }
   }
   if (config.ui?.statePanelIntervalMsec != null) {
     const v = config.ui.statePanelIntervalMsec;
@@ -84,7 +99,12 @@ export class DroneViewer {
       enableAttachedCameras: this.viewerConfig?.ui?.enableAttachedCameras,
       enableMainCameraMouseControl: this.viewerConfig?.ui?.enableMainCameraMouseControl,
     });
-    await main(resolvedSceneConfigPath);
+    const fleetOptions = this.viewerConfig?.stateInput?.fleets ?? {};
+    await main(resolvedSceneConfigPath, {
+      dynamicSpawn: this.viewerConfig?.stateInput?.mode === "fleets" && !!fleetOptions.dynamicSpawn,
+      templateDroneIndex: fleetOptions.templateDroneIndex ?? 0,
+      maxDynamicDrones: fleetOptions.maxDynamicDrones ?? 1,
+    });
     this.renderManager = new DroneRenderManager({ getDrones });
     if (!this.syncHookInstalled) {
       setBeforeDronesUpdateHook(() => {

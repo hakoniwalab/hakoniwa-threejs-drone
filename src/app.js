@@ -26,6 +26,52 @@ const runtimeOptions = {
   enableMainCameraMouseControl: true,
 };
 const keyState = {};              // キーボード状態
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function buildDroneName(baseName, index1Based) {
+  if (typeof baseName !== "string" || baseName.length === 0) {
+    return `Drone-${index1Based}`;
+  }
+  const m = baseName.match(/^(.*?)(?:[-_ ]?)(\d+)$/);
+  if (m && m[1]) {
+    const prefix = m[1].replace(/[-_ ]+$/, "");
+    return `${prefix}-${index1Based}`;
+  }
+  return `${baseName}-${index1Based}`;
+}
+
+function expandDroneInstances(sceneDrones, {
+  dynamicSpawn = false,
+  templateDroneIndex = 0,
+  maxDynamicDrones = 1,
+} = {}) {
+  const src = Array.isArray(sceneDrones) ? sceneDrones : [];
+  if (!dynamicSpawn) {
+    return src;
+  }
+  if (src.length === 0) {
+    throw new Error("[Hakoniwa] dynamicSpawn requires at least one drone in scene config.");
+  }
+  if (!Number.isInteger(templateDroneIndex) || templateDroneIndex < 0 || templateDroneIndex >= src.length) {
+    throw new Error(`[Hakoniwa] invalid templateDroneIndex: ${templateDroneIndex}`);
+  }
+  if (!Number.isInteger(maxDynamicDrones) || maxDynamicDrones <= 0) {
+    throw new Error(`[Hakoniwa] invalid maxDynamicDrones: ${maxDynamicDrones}`);
+  }
+  const template = src[templateDroneIndex];
+  const templateName = template?.name ?? "Drone";
+  const out = [];
+  for (let i = 0; i < maxDynamicDrones; i++) {
+    const d = deepClone(template);
+    d.name = buildDroneName(templateName, i + 1);
+    out.push(d);
+  }
+  return out;
+}
+
 export function getDrones() {
   return drones;
 }
@@ -47,20 +93,24 @@ export function setViewerRuntimeOptions(options = {}) {
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.toneMappingExposure = 1.25;
 container.appendChild(renderer.domElement);
 
 // scene
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x202020);
+scene.background = new THREE.Color(0xf1f4f8);
 
 // light
-const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
+const hemi = new THREE.HemisphereLight(0xffffff, 0xa0a0a0, 1.15);
 hemi.position.set(0, 20, 0);
 scene.add(hemi);
 
-const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+const dir = new THREE.DirectionalLight(0xffffff, 1.5);
 dir.position.set(5, 10, 5);
 scene.add(dir);
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+scene.add(ambient);
 
 // カメラ初期位置計算用
 const tmpVec3 = new THREE.Vector3();
@@ -68,7 +118,14 @@ const tmpVec3 = new THREE.Vector3();
 // -------------------------------------------------------------
 //  main
 // -------------------------------------------------------------
-export async function main(url = "/config/drone_config-compact-1.json") {
+export async function main(
+  url = "/config/drone_config-compact-1.json",
+  {
+    dynamicSpawn = false,
+    templateDroneIndex = 0,
+    maxDynamicDrones = 1,
+  } = {},
+) {
   console.log("[Hakoniwa] main() start. loading config:", url);
   const cfg = await loadConfig(url);
 
@@ -78,9 +135,14 @@ export async function main(url = "/config/drone_config-compact-1.json") {
   }
 
   // Drone
-  for (let i = 0; i < (cfg.drones ? cfg.drones.length : 0); i++) {
-    console.log("[Hakoniwa] Creating drone:", cfg.drones[i].name);
-    const drone = await Drone.create(scene, loader, cfg.drones[i], {
+  const droneInstances = expandDroneInstances(cfg.drones, {
+    dynamicSpawn,
+    templateDroneIndex,
+    maxDynamicDrones,
+  });
+  for (let i = 0; i < droneInstances.length; i++) {
+    console.log("[Hakoniwa] Creating drone:", droneInstances[i].name);
+    const drone = await Drone.create(scene, loader, droneInstances[i], {
       motorChannels: [0, 1, 2, 3],
       rotorScale: 200.0,
     });
