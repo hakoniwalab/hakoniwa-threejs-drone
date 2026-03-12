@@ -15,8 +15,6 @@ export class FleetStateSource extends IStateSource {
     this.stateByDrone = new Map();
     this.visualStateChannels = [];
     this.declared = false;
-    this.startIndexBase = null; // auto-detect: 0-based or 1-based
-    this.startIndexBaseLogged = false;
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -87,34 +85,34 @@ export class FleetStateSource extends IStateSource {
     };
   }
 
-  applyPacket(packet) {
-    const drones = Array.isArray(packet?.drones) ? packet.drones : [];
-    const validCount = Math.min(packet?.valid_count ?? drones.length, drones.length);
-    const rawStartIndex = packet?.start_index ?? 0;
-    const chunkIndex = packet?.chunk_index ?? 0;
+  isFiniteVisualState(vs) {
+    if (!vs) return false;
+    const values = [vs.x, vs.y, vs.z, vs.roll, vs.pitch, vs.yaw];
+    return values.every((value) => Number.isFinite(value));
+  }
 
-    if (this.startIndexBase == null && chunkIndex === 0) {
-      if (rawStartIndex === 0) {
-        this.startIndexBase = 0;
-      } else if (rawStartIndex === 1) {
-        this.startIndexBase = 1;
-      } else {
-        this.startIndexBase = 0;
-      }
+  applyPacket(packet) {
+    const sequenceId = packet?.sequence_id ?? 0;
+    if (!Number.isFinite(sequenceId) || sequenceId === 0) {
+      return;
     }
-    const base = this.startIndexBase ?? 0;
-    const startIndex = Math.max(0, rawStartIndex - base);
-    if (!this.startIndexBaseLogged && this.startIndexBase != null) {
-      console.info(
-        `[FleetStateSource] start_index base detected: ${this.startIndexBase} (raw=${rawStartIndex}, chunk=${chunkIndex})`,
-      );
-      this.startIndexBaseLogged = true;
+    const drones = Array.isArray(packet?.drones) ? packet.drones : [];
+    const rawValidCount = packet?.valid_count ?? drones.length;
+    const validCount = Number.isFinite(rawValidCount)
+      ? Math.max(0, Math.min(rawValidCount, drones.length))
+      : 0;
+    const rawStartIndex = packet?.start_index ?? 0;
+    if (!Number.isFinite(rawStartIndex) || rawStartIndex < 0) {
+      return;
     }
+    const startIndex = Math.trunc(rawStartIndex);
 
     for (let i = 0; i < validCount; i++) {
       const droneIndex = startIndex + i;
+      if (droneIndex < 0 || droneIndex >= this.boundDroneIds.length) continue;
       const droneId = this.boundDroneIds[droneIndex];
       if (!droneId) continue;
+      if (!this.isFiniteVisualState(drones[i])) continue;
       const state = this.convertVisualState(drones[i]);
       this.stateByDrone.set(droneId, state);
     }
