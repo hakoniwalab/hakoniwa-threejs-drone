@@ -2,6 +2,8 @@ import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRu
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
+import { FaultInjectionState } from "../fault_injection/fault_injection_state.js";
+import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -72,6 +74,8 @@ export class DroneViewer {
     this.viewerConfig = null;
     this.stateSource = null;
     this.renderManager = null;
+    this.faultInjectionState = new FaultInjectionState();
+    this.disturbanceWriter = new DisturbanceWriter();
     this.syncHookInstalled = false;
     if (config && Object.keys(config).length > 0) {
       this.configure(config);
@@ -204,6 +208,29 @@ export class DroneViewer {
 
   setFollowSelectedEnabled(enabled) {
     return setCameraFollowEnabled(!!enabled);
+  }
+
+  getRotorFaultScales() {
+    return this.faultInjectionState.getRotorScales();
+  }
+
+  setRotorFaultScales(scales = []) {
+    return this.faultInjectionState.setRotorScales(scales);
+  }
+
+  setRotorFaultScale(index, scale) {
+    return this.faultInjectionState.setRotorScale(index, scale);
+  }
+
+  resetRotorFaultScales() {
+    return this.faultInjectionState.reset();
+  }
+
+  async sendRotorFaultScales(scales = null) {
+    const effectiveScales = Array.isArray(scales)
+      ? this.faultInjectionState.setRotorScales(scales)
+      : this.faultInjectionState.getRotorScales();
+    return await this.disturbanceWriter.write(effectiveScales);
   }
 }
 

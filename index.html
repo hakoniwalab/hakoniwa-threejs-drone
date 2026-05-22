@@ -40,6 +40,16 @@
       cursor: pointer;
     }
 
+    #panel input[type="number"] {
+      width: 72px;
+      padding: 4px 6px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    #panel input[type="range"] {
+      width: 100%;
+    }
+
     #viewer-container {
       flex: 1;
       background: #000;
@@ -75,6 +85,24 @@
     }
     .prop-table .value {
       text-align: right;
+    }
+    .fault-grid {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 6px 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .fault-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .fault-status {
+      margin-top: 8px;
+      min-height: 16px;
+      font-size: 12px;
+      color: #333;
     }
   </style>
 </head>
@@ -113,6 +141,32 @@
           <tr><td class="label">y:</td><td class="value" id="prop-y"></td></tr>
           <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
         </table>
+      </div>
+
+      <div class="prop-box">
+        <h4>Rotor Fault Injection</h4>
+        <div class="fault-grid">
+          <label for="rotor-scale-0">Rotor 0</label>
+          <input id="rotor-scale-slider-0" type="range" min="0" max="1" step="0.1" value="1.0">
+          <input id="rotor-scale-0" type="number" min="0" max="1" step="0.1" value="1.0">
+
+          <label for="rotor-scale-1">Rotor 1</label>
+          <input id="rotor-scale-slider-1" type="range" min="0" max="1" step="0.1" value="1.0">
+          <input id="rotor-scale-1" type="number" min="0" max="1" step="0.1" value="1.0">
+
+          <label for="rotor-scale-2">Rotor 2</label>
+          <input id="rotor-scale-slider-2" type="range" min="0" max="1" step="0.1" value="1.0">
+          <input id="rotor-scale-2" type="number" min="0" max="1" step="0.1" value="1.0">
+
+          <label for="rotor-scale-3">Rotor 3</label>
+          <input id="rotor-scale-slider-3" type="range" min="0" max="1" step="0.1" value="1.0">
+          <input id="rotor-scale-3" type="number" min="0" max="1" step="0.1" value="1.0">
+        </div>
+        <div class="fault-actions">
+          <button id="fault-send-btn" type="button">send</button>
+          <button id="fault-reset-btn" type="button">reset</button>
+        </div>
+        <div id="fault-status" class="fault-status"></div>
       </div>
     </div>
 
@@ -154,6 +208,102 @@
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
       const stateZ = document.getElementById('prop-z');
+      const rotorScaleInputs = [
+        document.getElementById('rotor-scale-0'),
+        document.getElementById('rotor-scale-1'),
+        document.getElementById('rotor-scale-2'),
+        document.getElementById('rotor-scale-3'),
+      ];
+      const rotorScaleSliders = [
+        document.getElementById('rotor-scale-slider-0'),
+        document.getElementById('rotor-scale-slider-1'),
+        document.getElementById('rotor-scale-slider-2'),
+        document.getElementById('rotor-scale-slider-3'),
+      ];
+      const faultSendBtn = document.getElementById('fault-send-btn');
+      const faultResetBtn = document.getElementById('fault-reset-btn');
+      const faultStatus = document.getElementById('fault-status');
+
+      function clampScaleValue(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+          return 1.0;
+        }
+        return Math.max(0.0, Math.min(1.0, num));
+      }
+
+      function getRotorScalesFromInputs() {
+        return rotorScaleInputs.map((input) => {
+          return clampScaleValue(input?.value ?? 1.0);
+        });
+      }
+
+      function setRotorScalesToInputs(scales = []) {
+        rotorScaleInputs.forEach((input, index) => {
+          if (!input) return;
+          const value = clampScaleValue(scales[index] ?? 1.0);
+          input.value = value.toFixed(1);
+          if (rotorScaleSliders[index]) {
+            rotorScaleSliders[index].value = value.toFixed(1);
+          }
+        });
+      }
+
+      function setFaultStatus(message, isError = false) {
+        if (!faultStatus) return;
+        faultStatus.textContent = message;
+        faultStatus.style.color = isError ? "#b00020" : "#333";
+      }
+
+      async function sendCurrentRotorScales() {
+        const scales = getRotorScalesFromInputs();
+        setRotorScalesToInputs(scales);
+        try {
+          const ok = await viewer.sendRotorFaultScales(scales);
+          if (ok) {
+            setFaultStatus(`sent [${scales.map((v) => v.toFixed(1)).join(", ")}]`);
+          } else {
+            setFaultStatus("send failed", true);
+          }
+          return ok;
+        } catch (e) {
+          console.error(e);
+          setFaultStatus("send error", true);
+          return false;
+        }
+      }
+
+      function bindRotorScaleControls() {
+        rotorScaleInputs.forEach((input, index) => {
+          const slider = rotorScaleSliders[index];
+          if (input) {
+            input.addEventListener("input", () => {
+              const value = clampScaleValue(input.value);
+              input.value = value.toFixed(1);
+              if (slider) {
+                slider.value = value.toFixed(1);
+              }
+              viewer.setRotorFaultScale(index, value);
+            });
+            input.addEventListener("change", async () => {
+              await sendCurrentRotorScales();
+            });
+          }
+          if (slider) {
+            slider.addEventListener("input", () => {
+              const value = clampScaleValue(slider.value);
+              slider.value = value.toFixed(1);
+              if (input) {
+                input.value = value.toFixed(1);
+              }
+              viewer.setRotorFaultScale(index, value);
+            });
+            slider.addEventListener("change", async () => {
+              await sendCurrentRotorScales();
+            });
+          }
+        });
+      }
 
       function populateDroneSelect() {
         const drones = getDronesFromViewer();
@@ -210,6 +360,10 @@
         stateY.textContent = y.toFixed(2);
         stateZ.textContent = z.toFixed(2);
       }
+
+      setRotorScalesToInputs(viewer.getRotorFaultScales());
+      bindRotorScaleControls();
+      setFaultStatus("not sent");
 
       if (!connectBtn) {
         console.warn("connect-btn not found");
@@ -276,6 +430,22 @@
           if (enabled) {
             applyFollowSelectedIfEnabled();
           }
+        });
+      }
+
+      if (faultSendBtn) {
+        faultSendBtn.addEventListener("click", async () => {
+          setFaultStatus("sending...");
+          await sendCurrentRotorScales();
+        });
+      }
+
+      if (faultResetBtn) {
+        faultResetBtn.addEventListener("click", async () => {
+          const resetScales = viewer.resetRotorFaultScales();
+          setRotorScalesToInputs(resetScales);
+          setFaultStatus("sending nominal...");
+          await sendCurrentRotorScales();
         });
       }
     });
