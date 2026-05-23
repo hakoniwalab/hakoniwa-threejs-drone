@@ -14,6 +14,18 @@ function clampScale(value, fallback = 1.0) {
   return Math.max(0.0, Math.min(1.0, num));
 }
 
+function toWindVectorRos({ headingDeg = 0.0, speedMps = 0.0 } = {}) {
+  const heading = Number(headingDeg);
+  const speed = Number(speedMps);
+  const theta = Number.isFinite(heading) ? (heading * Math.PI) / 180.0 : 0.0;
+  const magnitude = Number.isFinite(speed) ? Math.max(0.0, speed) : 0.0;
+  return {
+    x: magnitude * Math.cos(theta),
+    y: magnitude * Math.sin(theta),
+    z: 0.0,
+  };
+}
+
 export class DisturbanceWriter {
   constructor({ robotName = "Drone", pduName = "disturb", defaultScale = 1.0 } = {}) {
     this.robotName = robotName;
@@ -21,8 +33,12 @@ export class DisturbanceWriter {
     this.defaultScale = defaultScale;
   }
 
-  buildMessage(rotorScales = []) {
+  buildMessage({ rotorScales = [], wind = {} } = {}) {
     const disturbance = new Disturbance();
+    const windVector = toWindVectorRos(wind);
+    disturbance.d_wind.value.x = windVector.x;
+    disturbance.d_wind.value.y = windVector.y;
+    disturbance.d_wind.value.z = windVector.z;
 
     // Slot 0 is reserved by the drone-side contract for existing custom inputs.
     disturbance.d_user_custom[DISTURBANCE_USER_CUSTOM_SLOT_GPS] = new DisturbanceUserCustom();
@@ -33,8 +49,8 @@ export class DisturbanceWriter {
     return disturbance;
   }
 
-  async write(rotorScales = []) {
-    const disturbance = this.buildMessage(rotorScales);
+  async write({ rotorScales = [], wind = {} } = {}) {
+    const disturbance = this.buildMessage({ rotorScales, wind });
     const raw = jsToPdu_Disturbance(disturbance);
     return await Hakoniwa.withPdu(async (pdu) => {
       return await pdu.flush_pdu_raw_data(this.robotName, this.pduName, raw);

@@ -223,14 +223,41 @@ export class DroneViewer {
   }
 
   resetRotorFaultScales() {
-    return this.faultInjectionState.reset();
+    const next = this.faultInjectionState.reset();
+    return next.rotorScales;
   }
 
   async sendRotorFaultScales(scales = null) {
     const effectiveScales = Array.isArray(scales)
       ? this.faultInjectionState.setRotorScales(scales)
       : this.faultInjectionState.getRotorScales();
-    return await this.disturbanceWriter.write(effectiveScales);
+    return await this.disturbanceWriter.write({
+      rotorScales: effectiveScales,
+      wind: this.faultInjectionState.getWind(),
+    });
+  }
+
+  getWind() {
+    return this.faultInjectionState.getWind();
+  }
+
+  setWind({ headingDeg, speedMps } = {}) {
+    return this.faultInjectionState.setWind({ headingDeg, speedMps });
+  }
+
+  setWindHeadingDeg(headingDeg) {
+    return this.faultInjectionState.setWindHeadingDeg(headingDeg);
+  }
+
+  setWindSpeedMps(speedMps) {
+    return this.faultInjectionState.setWindSpeedMps(speedMps);
+  }
+
+  async sendCurrentDisturbance() {
+    return await this.disturbanceWriter.write({
+      rotorScales: this.faultInjectionState.getRotorScales(),
+      wind: this.faultInjectionState.getWind(),
+    });
   }
 }
 

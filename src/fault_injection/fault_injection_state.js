@@ -3,6 +3,8 @@ export class FaultInjectionState {
     this.rotorCount = rotorCount;
     this.defaultScale = defaultScale;
     this.rotorScales = new Array(rotorCount).fill(defaultScale);
+    this.windHeadingDeg = 0.0;
+    this.windSpeedMps = 0.0;
   }
 
   getRotorScales() {
@@ -28,8 +30,36 @@ export class FaultInjectionState {
     return this.getRotorScales();
   }
 
+  getWind() {
+    return {
+      headingDeg: this.windHeadingDeg,
+      speedMps: this.windSpeedMps,
+    };
+  }
+
+  setWind({ headingDeg = this.windHeadingDeg, speedMps = this.windSpeedMps } = {}) {
+    const heading = Number(headingDeg);
+    const speed = Number(speedMps);
+    this.windHeadingDeg = Number.isFinite(heading) ? heading : this.windHeadingDeg;
+    this.windSpeedMps = Number.isFinite(speed) ? speed : this.windSpeedMps;
+    return this.getWind();
+  }
+
+  setWindHeadingDeg(headingDeg) {
+    return this.setWind({ headingDeg, speedMps: this.windSpeedMps });
+  }
+
+  setWindSpeedMps(speedMps) {
+    return this.setWind({ headingDeg: this.windHeadingDeg, speedMps });
+  }
+
   reset() {
     this.rotorScales = new Array(this.rotorCount).fill(this.defaultScale);
-    return this.getRotorScales();
+    this.windHeadingDeg = 0.0;
+    this.windSpeedMps = 0.0;
+    return {
+      rotorScales: this.getRotorScales(),
+      wind: this.getWind(),
+    };
   }
 }

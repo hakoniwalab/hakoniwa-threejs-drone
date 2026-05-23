@@ -93,6 +93,78 @@
       align-items: center;
       font-size: 12px;
     }
+    .compass-widget {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border: 2px solid #999;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, #ffffff 0 34%, #f2f2f2 35% 100%);
+      justify-self: start;
+      cursor: crosshair;
+      user-select: none;
+      touch-action: none;
+    }
+    .compass-widget::before,
+    .compass-widget::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: rgba(0, 0, 0, 0.12);
+      transform: translate(-50%, -50%);
+    }
+    .compass-widget::before {
+      width: 2px;
+      height: 84px;
+    }
+    .compass-widget::after {
+      width: 84px;
+      height: 2px;
+    }
+    .compass-label {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 700;
+      color: #555;
+      pointer-events: none;
+    }
+    .compass-label.n { top: 4px; left: 50%; transform: translateX(-50%); }
+    .compass-label.e { top: 50%; right: 6px; transform: translateY(-50%); }
+    .compass-label.s { bottom: 4px; left: 50%; transform: translateX(-50%); }
+    .compass-label.w { top: 50%; left: 6px; transform: translateY(-50%); }
+    .compass-pointer {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
+    .compass-pointer::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: -5px;
+      width: 38px;
+      height: 10px;
+      clip-path: polygon(0 50%, 72% 0, 100% 50%, 72% 100%);
+      background: #cc2b2b;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    }
+    .compass-center-dot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      background: #333;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
     .fault-actions {
       display: flex;
       gap: 8px;
@@ -168,6 +240,27 @@
         </div>
         <div id="fault-status" class="fault-status"></div>
       </div>
+
+      <div class="prop-box">
+        <h4>Wind Disturbance (ROS)</h4>
+        <div class="fault-grid">
+          <label for="wind-heading-deg">Heading</label>
+          <div id="wind-heading-compass" class="compass-widget" aria-label="Wind heading compass">
+            <span class="compass-label n">+X</span>
+            <span class="compass-label e">-Y</span>
+            <span class="compass-label s">-X</span>
+            <span class="compass-label w">+Y</span>
+            <div id="wind-heading-pointer" class="compass-pointer"></div>
+            <div class="compass-center-dot"></div>
+          </div>
+          <input id="wind-heading-deg" type="number" min="0" max="360" step="5" value="0">
+
+          <label for="wind-speed-mps">Speed</label>
+          <input id="wind-speed-slider" type="range" min="0" max="20" step="0.5" value="0">
+          <input id="wind-speed-mps" type="number" min="0" max="20" step="0.5" value="0.0">
+        </div>
+        <div id="wind-status" class="fault-status"></div>
+      </div>
     </div>
 
     <!-- 右：Three.js -->
@@ -223,6 +316,12 @@
       const faultSendBtn = document.getElementById('fault-send-btn');
       const faultResetBtn = document.getElementById('fault-reset-btn');
       const faultStatus = document.getElementById('fault-status');
+      const windHeadingCompass = document.getElementById('wind-heading-compass');
+      const windHeadingPointer = document.getElementById('wind-heading-pointer');
+      const windHeadingInput = document.getElementById('wind-heading-deg');
+      const windSpeedInput = document.getElementById('wind-speed-mps');
+      const windSpeedSlider = document.getElementById('wind-speed-slider');
+      const windStatus = document.getElementById('wind-status');
 
       function clampScaleValue(value) {
         const num = Number(value);
@@ -255,20 +354,70 @@
         faultStatus.style.color = isError ? "#b00020" : "#333";
       }
 
+      function clampHeadingDeg(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+          return 0.0;
+        }
+        let normalized = num % 360.0;
+        if (normalized < 0) {
+          normalized += 360.0;
+        }
+        return normalized;
+      }
+
+      function clampWindSpeed(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+          return 0.0;
+        }
+        return Math.max(0.0, Math.min(20.0, num));
+      }
+
+      function getWindFromInputs() {
+        return {
+          headingDeg: clampHeadingDeg(windHeadingInput?.value ?? 0.0),
+          speedMps: clampWindSpeed(windSpeedInput?.value ?? 0.0),
+        };
+      }
+
+      function setWindToInputs({ headingDeg = 0.0, speedMps = 0.0 } = {}) {
+        const heading = clampHeadingDeg(headingDeg);
+        const speed = clampWindSpeed(speedMps);
+        if (windHeadingInput) windHeadingInput.value = heading.toFixed(0);
+        if (windSpeedInput) windSpeedInput.value = speed.toFixed(1);
+        if (windSpeedSlider) windSpeedSlider.value = speed.toFixed(1);
+        if (windHeadingPointer) {
+          windHeadingPointer.style.transform = `translate(-50%, -50%) rotate(${-90 - heading}deg)`;
+        }
+      }
+
+      function setWindStatus(message, isError = false) {
+        if (!windStatus) return;
+        windStatus.textContent = message;
+        windStatus.style.color = isError ? "#b00020" : "#333";
+      }
+
       async function sendCurrentRotorScales() {
         const scales = getRotorScalesFromInputs();
         setRotorScalesToInputs(scales);
+        const wind = getWindFromInputs();
+        setWindToInputs(wind);
         try {
+          viewer.setWind(wind);
           const ok = await viewer.sendRotorFaultScales(scales);
           if (ok) {
             setFaultStatus(`sent [${scales.map((v) => v.toFixed(1)).join(", ")}]`);
+            setWindStatus(`sent heading=${wind.headingDeg.toFixed(0)} speed=${wind.speedMps.toFixed(1)}`);
           } else {
             setFaultStatus("send failed", true);
+            setWindStatus("send failed", true);
           }
           return ok;
         } catch (e) {
           console.error(e);
           setFaultStatus("send error", true);
+          setWindStatus("send error", true);
           return false;
         }
       }
@@ -303,6 +452,100 @@
             });
           }
         });
+      }
+
+      function bindWindControls() {
+        let compassDragging = false;
+
+        function readHeadingFromCompassEvent(event) {
+          if (!windHeadingCompass) {
+            return 0.0;
+          }
+          const rect = windHeadingCompass.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dx = event.clientX - cx;
+          const dy = cy - event.clientY;
+          const deg = Math.atan2(-dx, dy) * 180.0 / Math.PI;
+          return clampHeadingDeg(deg);
+        }
+
+        function applyCompassHeading(heading) {
+          const normalized = clampHeadingDeg(heading);
+          if (windHeadingInput) {
+            windHeadingInput.value = normalized.toFixed(0);
+          }
+          viewer.setWindHeadingDeg(normalized);
+          setWindToInputs({
+            headingDeg: normalized,
+            speedMps: getWindFromInputs().speedMps,
+          });
+        }
+
+        if (windHeadingCompass) {
+          windHeadingCompass.addEventListener("mousedown", (event) => {
+            compassDragging = true;
+            applyCompassHeading(readHeadingFromCompassEvent(event));
+          });
+          window.addEventListener("mousemove", (event) => {
+            if (!compassDragging) {
+              return;
+            }
+            applyCompassHeading(readHeadingFromCompassEvent(event));
+          });
+          window.addEventListener("mouseup", async () => {
+            if (!compassDragging) {
+              return;
+            }
+            compassDragging = false;
+            await sendCurrentRotorScales();
+          });
+          windHeadingCompass.addEventListener("click", async (event) => {
+            applyCompassHeading(readHeadingFromCompassEvent(event));
+            await sendCurrentRotorScales();
+          });
+        }
+
+        if (windHeadingInput) {
+          windHeadingInput.addEventListener("input", () => {
+            const heading = clampHeadingDeg(windHeadingInput.value);
+            windHeadingInput.value = heading.toFixed(0);
+            viewer.setWindHeadingDeg(heading);
+            setWindToInputs({
+              headingDeg: heading,
+              speedMps: getWindFromInputs().speedMps,
+            });
+          });
+          windHeadingInput.addEventListener("change", async () => {
+            await sendCurrentRotorScales();
+          });
+        }
+        if (windSpeedInput) {
+          windSpeedInput.addEventListener("input", () => {
+            const speed = clampWindSpeed(windSpeedInput.value);
+            windSpeedInput.value = speed.toFixed(1);
+            if (windSpeedSlider) {
+              windSpeedSlider.value = speed.toFixed(1);
+            }
+            viewer.setWindSpeedMps(speed);
+          });
+          windSpeedInput.addEventListener("change", async () => {
+            await sendCurrentRotorScales();
+          });
+        }
+        if (windSpeedSlider) {
+          windSpeedSlider.addEventListener("input", () => {
+            const speed = clampWindSpeed(windSpeedSlider.value);
+            windSpeedSlider.value = speed.toFixed(1);
+            if (windSpeedInput) {
+              windSpeedInput.value = speed.toFixed(1);
+            }
+            viewer.setWindSpeedMps(speed);
+          });
+          windSpeedSlider.addEventListener("change", async () => {
+            await sendCurrentRotorScales();
+          });
+        }
       }
 
       function populateDroneSelect() {
@@ -362,8 +605,11 @@
       }
 
       setRotorScalesToInputs(viewer.getRotorFaultScales());
+      setWindToInputs(viewer.getWind());
       bindRotorScaleControls();
+      bindWindControls();
       setFaultStatus("not sent");
+      setWindStatus("not sent");
 
       if (!connectBtn) {
         console.warn("connect-btn not found");

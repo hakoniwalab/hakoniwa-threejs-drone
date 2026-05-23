@@ -1,0 +1,22 @@
+{
+  "paths": [
+    {
+      "id": "visual_state_type",
+      "path": "pdudef-disturb-visual-state-pdutypes.json"
+    },
+    {
+      "id": "drone_type",
+      "path": "pdudef-disturb-drone-pdutypes.json"
+    }
+  ],
+  "robots": [
+    {
+      "name": "DroneVisualStatePublisher",
+      "pdutypes_id": "visual_state_type"
+    },
+    {
+      "name": "Drone",
+      "pdutypes_id": "drone_type"
+    }
+  ]
+}
