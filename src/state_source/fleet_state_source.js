@@ -58,22 +58,30 @@ export class FleetStateSource extends IStateSource {
   }
 
   toRotorSpeedRadPerSec(pwmDutyArray) {
-    if (!Array.isArray(pwmDutyArray) || pwmDutyArray.length === 0) {
+    const speeds = this.toRotorSpeedsRadPerSec(pwmDutyArray);
+    if (speeds.length === 0) {
       return 0;
     }
-    let sum = 0;
-    let count = 0;
+    const sum = speeds.reduce((acc, value) => acc + value, 0);
+    return sum / speeds.length;
+  }
+
+  toRotorSpeedsRadPerSec(pwmDutyArray) {
+    if (!Array.isArray(pwmDutyArray) || pwmDutyArray.length === 0) {
+      return [];
+    }
+    const speeds = [];
     for (const idx of this.motorChannels) {
       if (idx < pwmDutyArray.length) {
-        sum += pwmDutyArray[idx];
-        count++;
+        const duty = Number.isFinite(pwmDutyArray[idx]) ? pwmDutyArray[idx] : 0;
+        speeds.push(duty * this.rotorScale);
       }
     }
-    if (count === 0) return 0;
-    return (sum / count) * this.rotorScale;
+    return speeds;
   }
 
   convertVisualState(vs) {
+    const rotorSpeeds = this.toRotorSpeedsRadPerSec(vs.pwm_duty);
     return {
       rosPos: [vs.x, vs.y, vs.z],
       rosRpyDeg: [
@@ -82,6 +90,7 @@ export class FleetStateSource extends IStateSource {
         vs.yaw * RAD2DEG,
       ],
       rotorSpeedRadPerSec: this.toRotorSpeedRadPerSec(vs.pwm_duty),
+      rotorSpeedsRadPerSec: rotorSpeeds,
     };
   }
 
@@ -136,6 +145,7 @@ export class FleetStateSource extends IStateSource {
       rosPos: [...s.rosPos],
       rosRpyDeg: [...s.rosRpyDeg],
       rotorSpeedRadPerSec: s.rotorSpeedRadPerSec,
+      rotorSpeedsRadPerSec: [...(s.rotorSpeedsRadPerSec ?? [])],
     };
   }
 

@@ -21,11 +21,13 @@ export class Drone {
         // 描画用
         this.root = null;
         this.rotors = [];
+        this.rotorDirections = [];
         this.cameras = [];
 
         // 状態
         this.latestPose = null;      // { rosPos, rosRpyDeg }
         this.rotorSpeed = 0;         // [rad/s]
+        this.rotorSpeeds = [];       // per-rotor [rad/s]
 
         // ★ 小窓用カメラ群（Drone に紐づく）
         // [{ entity: RenderEntity, camera: THREE.PerspectiveCamera,
@@ -108,6 +110,7 @@ export class Drone {
             root.addChild(rotorEnt);
 
             this.rotors.push(rotorEnt);
+            this.rotorDirections.push(this._resolveRotorSpinDirection(r, this.rotorDirections.length));
             }
         }
 
@@ -163,16 +166,44 @@ export class Drone {
         this.root = root;
     }
 
+    _resolveRotorSpinDirection(rotorConfig, index) {
+        const raw = rotorConfig?.spinDirection ?? rotorConfig?.rotationDirection;
+        if (typeof raw === "number" && Number.isFinite(raw)) {
+            return raw < 0 ? -1 : 1;
+        }
+        if (typeof raw === "string") {
+            const normalized = raw.trim().toLowerCase();
+            if (normalized === "cw" || normalized === "clockwise" || normalized === "-1") {
+                return -1;
+            }
+            if (normalized === "ccw" || normalized === "counterclockwise" || normalized === "counter-clockwise" || normalized === "1") {
+                return 1;
+            }
+        }
+        return (index % 2 === 0) ? -1 : 1;
+    }
+
     // StateSource からの適用用API（PDU読み込み責務は持たない）
-    applyState({ rosPos, rosRpyDeg, rotorSpeedRadPerSec } = {}) {
+    applyState({ rosPos, rosRpyDeg, rotorSpeedRadPerSec, rotorSpeedsRadPerSec } = {}) {
         if (rosPos && rosRpyDeg) {
             this.latestPose = {
                 rosPos: [...rosPos],
                 rosRpyDeg: [...rosRpyDeg],
             };
         }
-        if (typeof rotorSpeedRadPerSec === "number") {
+        const hasRotorSpeeds = Array.isArray(rotorSpeedsRadPerSec);
+        if (hasRotorSpeeds) {
+            this.rotorSpeeds = rotorSpeedsRadPerSec.map((value) =>
+                Number.isFinite(value) ? value : 0
+            );
+            if (this.rotorSpeeds.length > 0) {
+                const sum = this.rotorSpeeds.reduce((acc, value) => acc + Math.abs(value), 0);
+                this.rotorSpeed = sum / this.rotorSpeeds.length;
+            }
+        }
+        if (!hasRotorSpeeds && typeof rotorSpeedRadPerSec === "number") {
             this.rotorSpeed = rotorSpeedRadPerSec;
+            this.rotorSpeeds = [];
         }
     }
 
@@ -213,16 +244,20 @@ export class Drone {
         this.root.setPositionRos(rosPos);
         this.root.setRpyRosDeg(rosRpyDeg);
 
-        if (dt <= 0 || this.rotorSpeed === 0) return;
+        if (dt <= 0) return;
 
-        const d = this.rotorSpeed * dt;
         let index = 0;
         for (const rotorEnt of this.rotors) {
-            if (index % 2 === 0) {
-                rotorEnt.rotateLocalEuler([0, -d, 0]);
-            } else {
-                rotorEnt.rotateLocalEuler([0, d, 0]);
+            const rotorSpeed = (index < this.rotorSpeeds.length)
+                ? this.rotorSpeeds[index]
+                : this.rotorSpeed;
+            if (rotorSpeed === 0) {
+                index++;
+                continue;
             }
+            const d = rotorSpeed * dt;
+            const direction = this.rotorDirections[index] ?? ((index % 2 === 0) ? -1 : 1);
+            rotorEnt.rotateLocalEuler([0, direction * d, 0]);
             index++;
         }
         this._updateViewCameras(dt);

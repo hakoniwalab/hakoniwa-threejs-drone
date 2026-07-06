@@ -88,12 +88,14 @@ drone types ファイル例（`/config/drone_types-quadrotor_base.json`）:
 - ルート: `{"<typeName>": { ...typeDef... }}`
 - typeDef の主な項目:
 - `model`: 機体本体モデル定義
-- `rotors`: ローターモデルと取り付け位置/姿勢
+- `rotors`: ローターモデル、取り付け位置/姿勢、表示上の回転方向
 - `cameras`: 取り付けカメラ定義（FOV/viewport 含む）
 
 補足:
 - 従来モデルを使う場合は `droneTypesPath` を `config/drone_types-quadrotor_dji.json` に切り替える。
 - `dji` の実モデル配置は `assets/local_models/` を使用する（非コミット運用）。
+- `rotors[].spinDirection` はプロペラ表示アニメーションの回転方向を表す。指定値は
+  `cw` または `ccw`。未指定時は従来互換としてローターindexの偶奇で交互に回転する。
 
 ## 5. 座標系
 
