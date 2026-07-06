@@ -198,7 +198,9 @@ export class DroneViewer {
         name: d.cfg?.name ?? String(d.droneId ?? index),
         positionRos: [...d.latestPose.rosPos],
         rpyDeg: [...d.latestPose.rosRpyDeg],
+        pwmDuty: [...(d.pwmDuty ?? [])],
         rotorSpeedRadPerSec: d.rotorSpeed ?? 0,
+        rotorSpeedsRadPerSec: [...(d.rotorSpeeds ?? [])],
       }));
   }
 

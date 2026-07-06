@@ -81,6 +81,9 @@ export class FleetStateSource extends IStateSource {
   }
 
   convertVisualState(vs) {
+    const pwmDuty = Array.isArray(vs.pwm_duty)
+      ? vs.pwm_duty.map((value) => Number.isFinite(value) ? value : 0)
+      : [];
     const rotorSpeeds = this.toRotorSpeedsRadPerSec(vs.pwm_duty);
     return {
       rosPos: [vs.x, vs.y, vs.z],
@@ -89,6 +92,7 @@ export class FleetStateSource extends IStateSource {
         vs.pitch * RAD2DEG,
         vs.yaw * RAD2DEG,
       ],
+      pwmDuty,
       rotorSpeedRadPerSec: this.toRotorSpeedRadPerSec(vs.pwm_duty),
       rotorSpeedsRadPerSec: rotorSpeeds,
     };
@@ -144,6 +148,7 @@ export class FleetStateSource extends IStateSource {
     return {
       rosPos: [...s.rosPos],
       rosRpyDeg: [...s.rosRpyDeg],
+      pwmDuty: [...(s.pwmDuty ?? [])],
       rotorSpeedRadPerSec: s.rotorSpeedRadPerSec,
       rotorSpeedsRadPerSec: [...(s.rotorSpeedsRadPerSec ?? [])],
     };

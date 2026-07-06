@@ -83,20 +83,27 @@ export class LegacyStateSource extends IStateSource {
     return this.readRotorSpeedRadPerSecFromBuffer(bufMotor);
   }
 
-  readRotorSpeedRadPerSecFromBuffer(bufMotor) {
+  readPwmDutyFromBuffer(bufMotor) {
     const msg = pduToJs_HakoHilActuatorControls(bufMotor);
     const controls = msg.controls;
-    if (!controls || controls.length === 0) return null;
-    let sumDuty = 0;
-    let count = 0;
+    if (!controls || controls.length === 0) return [];
+    const pwmDuty = [];
     for (const idx of this.motorChannels) {
       if (idx < controls.length) {
-        sumDuty += controls[idx];
-        count++;
+        pwmDuty.push(Number.isFinite(controls[idx]) ? controls[idx] : 0);
       }
     }
-    if (count === 0) return null;
-    const avgDuty = sumDuty / count;
+    return pwmDuty;
+  }
+
+  readRotorSpeedRadPerSecFromBuffer(bufMotor) {
+    const pwmDuty = this.readPwmDutyFromBuffer(bufMotor);
+    if (pwmDuty.length === 0) return null;
+    let sumDuty = 0;
+    for (const duty of pwmDuty) {
+      sumDuty += duty;
+    }
+    const avgDuty = sumDuty / pwmDuty.length;
     return avgDuty * this.rotorScale;
   }
 
@@ -111,6 +118,7 @@ export class LegacyStateSource extends IStateSource {
       return null;
     }
     const twist = pduToJs_Twist(bufPos);
+    const pwmDuty = bufMotor ? this.readPwmDutyFromBuffer(bufMotor) : [];
     const rotorSpeed = rotorSpeedOverride ?? (bufMotor ? this.readRotorSpeedRadPerSecFromBuffer(bufMotor) : null);
     return {
       rosPos: [twist.linear.x, twist.linear.y, twist.linear.z],
@@ -119,6 +127,7 @@ export class LegacyStateSource extends IStateSource {
         rad2deg(twist.angular.y),
         rad2deg(twist.angular.z),
       ],
+      pwmDuty,
       rotorSpeedRadPerSec: rotorSpeed ?? 0,
     };
   }
@@ -141,6 +150,7 @@ export class LegacyStateSource extends IStateSource {
     return {
       rosPos: [...s.rosPos],
       rosRpyDeg: [...s.rosRpyDeg],
+      pwmDuty: [...(s.pwmDuty ?? [])],
       rotorSpeedRadPerSec: s.rotorSpeedRadPerSec,
     };
   }

@@ -28,6 +28,7 @@ export class Drone {
         this.latestPose = null;      // { rosPos, rosRpyDeg }
         this.rotorSpeed = 0;         // [rad/s]
         this.rotorSpeeds = [];       // per-rotor [rad/s]
+        this.pwmDuty = [];           // latest received pwm_duty values
 
         // ★ 小窓用カメラ群（Drone に紐づく）
         // [{ entity: RenderEntity, camera: THREE.PerspectiveCamera,
@@ -184,12 +185,15 @@ export class Drone {
     }
 
     // StateSource からの適用用API（PDU読み込み責務は持たない）
-    applyState({ rosPos, rosRpyDeg, rotorSpeedRadPerSec, rotorSpeedsRadPerSec } = {}) {
+    applyState({ rosPos, rosRpyDeg, pwmDuty, rotorSpeedRadPerSec, rotorSpeedsRadPerSec } = {}) {
         if (rosPos && rosRpyDeg) {
             this.latestPose = {
                 rosPos: [...rosPos],
                 rosRpyDeg: [...rosRpyDeg],
             };
+        }
+        if (Array.isArray(pwmDuty)) {
+            this.pwmDuty = pwmDuty.map((value) => Number.isFinite(value) ? value : 0);
         }
         const hasRotorSpeeds = Array.isArray(rotorSpeedsRadPerSec);
         if (hasRotorSpeeds) {

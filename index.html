@@ -212,6 +212,10 @@
           <tr><td class="label">x:</td><td class="value" id="prop-x"></td></tr>
           <tr><td class="label">y:</td><td class="value" id="prop-y"></td></tr>
           <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
+          <tr><td class="label">pwm0:</td><td class="value" id="prop-pwm-0"></td></tr>
+          <tr><td class="label">pwm1:</td><td class="value" id="prop-pwm-1"></td></tr>
+          <tr><td class="label">pwm2:</td><td class="value" id="prop-pwm-2"></td></tr>
+          <tr><td class="label">pwm3:</td><td class="value" id="prop-pwm-3"></td></tr>
         </table>
       </div>
 
@@ -286,6 +290,7 @@
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
 
     const viewer = createDroneViewer();
+    window.droneViewer = viewer;
     // Debug helper for browser console inspection.
     window.__hakoniwaViewer = viewer;
 
@@ -301,6 +306,12 @@
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
       const stateZ = document.getElementById('prop-z');
+      const statePwmDuty = [
+        document.getElementById('prop-pwm-0'),
+        document.getElementById('prop-pwm-1'),
+        document.getElementById('prop-pwm-2'),
+        document.getElementById('prop-pwm-3'),
+      ];
       const rotorScaleInputs = [
         document.getElementById('rotor-scale-0'),
         document.getElementById('rotor-scale-1'),
@@ -595,6 +606,7 @@
           stateX.textContent = "";
           stateY.textContent = "";
           stateZ.textContent = "";
+          statePwmDuty.forEach((el) => { if (el) el.textContent = ""; });
           return;
         }
 
@@ -602,6 +614,15 @@
         stateX.textContent = x.toFixed(2);
         stateY.textContent = y.toFixed(2);
         stateZ.textContent = z.toFixed(2);
+        statePwmDuty.forEach((el, index) => {
+          if (!el) return;
+          const directValue = d.pwmDuty?.[index];
+          const fallbackValue = Number.isFinite(d.rotorSpeeds?.[index])
+            ? d.rotorSpeeds[index] / 200.0
+            : undefined;
+          const value = Number.isFinite(directValue) ? directValue : fallbackValue;
+          el.textContent = Number.isFinite(value) ? value.toFixed(3) : "n/a";
+        });
       }
 
       setRotorScalesToInputs(viewer.getRotorFaultScales());
