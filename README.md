@@ -1,147 +1,236 @@
 # hakoniwa-threejs-drone
 
-three.js ベースの Hakoniwa ドローン可視化ビューアです。  
-`viewer_config` 駆動で `legacy` / `fleets` の入力モードを切り替えられます。
+Hakoniwa Droneの状態を、Three.jsを使ってブラウザ上に表示する可視化コンポーネントです。
 
-## クイックスタート
+`viewer_config`により、従来の機体単位入力である`legacy`と、`DroneVisualStateArray`を使う`fleets`を切り替えられます。単体・複数機の表示、動的スポーン、機体選択、追従カメラ、風・ローター故障入力のUIを提供します。
 
-1. このディレクトリで静的ファイルサーバを起動
-   - 例: `python -m http.server 8000`
-2. ブラウザで `http://127.0.0.1:8000/index.html` を開く
-3. `connect` ボタンで WebSocket (`ws://127.0.0.1:8765`) に接続
+## このリポジトリの責任範囲
 
-## 起動設定（viewer_config）
+本リポジトリが担当するもの:
 
-`index.html` は URL クエリ `viewerConfigPath` で設定ファイルを切り替えます。  
-未指定時は `/config/viewer-config-legacy.json` を使用します。
+- Three.jsによるドローンと背景モデルの描画
+- Viewer設定、scene設定、PDU定義の読み込み
+- WebSocket経由のHakoniwa PDU入力
+- `legacy` / `fleets`状態入力
+- ブラウザ側の機体選択、カメラ操作、故障・風入力
+- 他のブラウザUIから利用できる`createDroneViewer()`公開API
 
-例:
-- legacy(dji): `index.html?viewerConfigPath=/config/viewer-config-legacy.json`
-- fleets: `index.html?viewerConfigPath=/config/viewer-config-fleets.json`
+本リポジトリが担当しないもの:
 
-fleets では compact pdudef（`/config/pdudef-fleets.json`）を使用します。
+- ドローンの物理計算
+- Hakoniwaシミュレーションの時刻・ライフサイクル管理
+- shared-memory PDUからWebSocketへの変換
+- PLATEAU都市データの所有・配布
+- 展示構成全体のLauncher生成
 
-URLクエリ上書き（任意）:
-- `wsUri`: WebSocket接続先を上書き
-- `wireVersion`: `v1` / `v2` を上書き
-- `pduDefPath`: PDU定義ファイルを上書き（相対/絶対URL可）
-- `dynamicSpawn`: `true` / `false`
-- `templateDroneIndex`: テンプレートに使う機体index
-- `maxDynamicDrones`: 動的生成の上限機体数
+標準的なデータ経路は次のとおりです。
 
-優先順位:
-- URLクエリ > viewer_config
-
-例:
-- `index.html?viewerConfigPath=/config/viewer-config-legacy.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2`
-- `index.html?viewerConfigPath=/config/viewer-config-fleets.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2&dynamicSpawn=true&templateDroneIndex=0&maxDynamicDrones=100`
-
-## 主要設定
-
-`viewer_config` の仕様詳細は以下を参照:
-- `docs/viewer-config-spec.md`
-- `config/schema/viewer-config.schema.json`
-
-主要キー:
-- `three.sceneConfigPath`: scene config（compactのみ）
-- `pdu.pduDefPath`: compact pdudef
-- `pdu.wsUri`: bridge WebSocket URI
-- `stateInput.mode`: `legacy` or `fleets`
-- `stateInput.fleets.dynamicSpawn`: 動的スポーン有効化
-- `stateInput.fleets.templateDroneIndex`: テンプレート機体index
-- `stateInput.fleets.maxDynamicDrones`: 動的スポーン最大機体数
-- `ui.enableAttachedCameras`: 小窓カメラ描画 ON/OFF
-- `ui.enableMainCameraMouseControl`: メインカメラのマウス操作 ON/OFF
-
-100機体向け推奨:
-- `ui.enableAttachedCameras: false`
-- `pdu.wireVersion: "v2"`（fleetsは必須）
-
-## モデルタイプ（並存運用）
-
-モデルタイプは `base` と `dji` を併存運用します。
-
-- `base`（デフォルト）:
-  - type: `quadrotor_base`
-  - types file: `config/drone_types-quadrotor_base.json`
-- `dji`（従来モデル / ローカル運用）:
-  - type: `quadrotor_dji`
-  - types file: `config/drone_types-quadrotor_dji.json`
-
-サンプル scene config:
-- `config/drone_config-compact-1.json`（デフォルト: base）
-- `config/drone_config-compact-base-1.json`（base 明示）
-- `config/drone_config-compact-dji-1.json`（dji）
-
-ローカル運用ルール:
-- `assets/models/` は base 用のみをコミット対象にする
-- `dji` などのローカルモデルは `assets/local_models/` に配置する
-
-`assets/local_models` を使う手順:
-1. ディレクトリ作成: `mkdir -p assets/local_models`
-2. 手元モデルを配置（例）:
-   - `assets/local_models/drone.glb`
-   - `assets/local_models/prop-1.glb`
-   - `assets/local_models/prop-2.glb`
-   - `assets/local_models/camera.glb`
-   - `assets/local_models/13113_shibuya-ku_pref_2023_citygml_2_op.glb`
-3. `dji` 設定を使う:
-   - scene config: `config/drone_config-compact-dji-1.json`
-   - types: `config/drone_types-quadrotor_dji.json`（`/assets/local_models/...` を参照）
-4. 非コミット運用にしたい場合は `.gitignore` に `assets/local_models/` を追加
-
-## UI 操作
-
-- `connect`: PDU接続を開始
-- Drone セレクト: 注視対象ドローンを選択
-- `Follow selected`:
-  - ON: 選択ドローンをメインカメラで追従
-  - OFF: 固定カメラモード
-- マウス操作:
-  - `ui.enableMainCameraMouseControl=true` のとき OrbitControls が有効
-
-## 設計/タスク
-
-- 設計: `docs/design.md`
-- 作業計画: `docs/task.md`
-- scene config仕様: `docs/scene-config-spec.md`
-
-## fleets 結合手順（E2E）
-
-前提:
-- Hakoniwa 本体: `hakoniwa-drone-pro`
-- bridge: `hakoniwa-pdu-bridge-core`
-- threejs: このリポジトリ
-
-1. drone service 起動（`hakoniwa-drone-pro`）
-```bash
-./mac/mac-main_hako_drone_service config/drone/fleets/api-1.json config/pdudef/drone-pdudef-1.json
+```text
+Hakoniwa Drone service
+        |
+        v
+DroneVisualStatePublisher
+        |
+        v
+shared-memory PDU
+        |
+        v
+hakoniwa-pdu-bridge-core WebBridge
+        |
+        v
+WebSocket :8765
+        |
+        v
+hakoniwa-threejs-drone
 ```
 
-2. visual_state_publisher 起動（`hakoniwa-drone-pro`）
+## 前提条件
+
+- Python 3.9以上
+- WebGLを利用できる現在のブラウザ
+- recursive cloneされた`hakoniwa-pdu-javascript` submodule
+- 実データへ接続する場合は、互換性のあるWebBridgeと状態publisher
+
 ```bash
-./src/cmake-build/assets/visual_state_publisher/drone_visual_state_publisher config/assets/visual_state_publisher/visual_state_publisher.json
+git clone --recursive https://github.com/hakoniwalab/hakoniwa-threejs-drone.git
+cd hakoniwa-threejs-drone
 ```
 
-3. web bridge 起動（`hakoniwa-pdu-bridge-core`）
+既存cloneでsubmoduleを取得する場合:
+
 ```bash
-./tools/run-web-bridge.bash \
-  --config-root config/web_bridge_fleets \
-  --node-name web_bridge_fleets_node1 \
-  --delta-time-step-usec 20000 \
-  --enable-ondemand
+git submodule update --init --recursive
 ```
 
-4. threejs を配信（`hakoniwa-threejs-drone`）
+## hako.py標準操作
+
+本リポジトリは、Business Packの`hako.py` CLI Contractに基づき、静的Webコンポーネントとして意味のある3操作を提供します。
+
+```bash
+python tools/hako.py doctor
+python tools/hako.py test
+python tools/hako.py smoke
+```
+
+| 操作 | 確認内容 |
+| --- | --- |
+| `doctor` | Python、必須ファイル、PDU JavaScript submodule、Viewer設定の参照先 |
+| `test` | Viewer設定契約、公開API、submodule、README運用契約 |
+| `smoke` | 一時HTTPサーバーを起動し、HTML・設定・公開Viewer module・PDU moduleを実際に取得 |
+
+`smoke`は静的配信契約を検証します。ブラウザ描画、WebSocket接続、ドローン飛行までを検証するE2Eテストではありません。
+
+このコンポーネントにはネイティブなbuildやinstall工程がないため、`configure`、`build`、`install`は定義していません。
+
+## 単体起動
+
+静的ファイルサーバーを起動します。
+
 ```bash
 python -m http.server 8000
 ```
 
-5. ブラウザで fleets viewer を開く
+ブラウザで開きます。
+
 ```text
-http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2
+http://127.0.0.1:8000/index.html
 ```
 
-確認ポイント:
-- ブラウザ console に `[FleetStateSource] visual_state_array channels:` が出る
-- connect 後、機体の位置・姿勢が更新される
+既定では、次の設定と接続先を使用します。
+
+- Viewer設定: `/config/viewer-config-legacy.json`
+- WebSocket: `ws://127.0.0.1:8765`
+
+WebBridgeが起動していない状態でも画面は表示できますが、`connect`は成功しません。
+
+## Viewer設定
+
+URLクエリ`viewerConfigPath`でViewer設定を切り替えます。
+
+```text
+# legacy
+http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-legacy.json
+
+# fleets
+http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.json
+```
+
+URLクエリで次の値も上書きできます。
+
+- `wsUri`: WebSocket接続先
+- `wireVersion`: `v1`または`v2`
+- `pduDefPath`: PDU定義のURL
+- `dynamicSpawn`: 動的スポーンの有効化
+- `templateDroneIndex`: 動的生成時のテンプレート機体
+- `maxDynamicDrones`: 動的生成する最大機体数
+
+優先順位はURLクエリ、Viewer設定の順です。
+
+```text
+http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.json&wsUri=ws://127.0.0.1:8765&wireVersion=v2&dynamicSpawn=true&templateDroneIndex=0&maxDynamicDrones=100
+```
+
+仕様:
+
+- [Viewer config specification](docs/viewer-config-spec.md)
+- [Viewer config schema](config/schema/viewer-config.schema.json)
+- [Scene config specification](docs/scene-config-spec.md)
+
+主な設定項目:
+
+- `three.sceneConfigPath`
+- `pdu.pduDefPath`
+- `pdu.wsUri`
+- `pdu.wireVersion`
+- `stateInput.mode`
+- `stateInput.fleets.dynamicSpawn`
+- `stateInput.fleets.templateDroneIndex`
+- `stateInput.fleets.maxDynamicDrones`
+- `ui.enableAttachedCameras`
+- `ui.enableMainCameraMouseControl`
+
+`fleets`では`pdu.wireVersion: "v2"`が必須です。多数機表示では、`ui.enableAttachedCameras: false`を推奨します。
+
+## 公開Viewer API
+
+他のブラウザUIは、次のmoduleを動的importしてViewerを組み込めます。
+
+```javascript
+import { createDroneViewer } from "/src/public/drone_viewer.js";
+
+const viewer = createDroneViewer();
+viewer.configure(viewerConfig);
+await viewer.initialize();
+await viewer.connectPdu();
+await viewer.initDronePdu();
+```
+
+`hakoniwa-map-viewer`は、この公開APIを利用してLeaflet地図とThree.js表示を統合します。
+
+## モデル資産
+
+標準の`base`モデルは`assets/models/`で管理します。DJIモデルやPLATEAU GLBなど、ライセンスやサイズの都合でリポジトリへ含めない資産は`assets/local_models/`へ配置します。
+
+```text
+assets/local_models/
+├── drone.glb
+├── prop-1.glb
+├── prop-2.glb
+├── camera.glb
+└── 13113_shibuya-ku_pref_2023_citygml_2_op.glb
+```
+
+PLATEAU渋谷GLBの配布責任は`hakoniwa-map-viewer`側にあります。このリポジトリは、指定されたGLBをThree.js sceneとして読み込む機能を担当します。
+
+## Business PackによるE2E構成
+
+複数コンポーネントを手作業で個別起動する代わりに、Business Pack Recipeを利用することを推奨します。
+
+現在の参照Recipe:
+
+- `recipes/examples/drone-single-mujoco-threejs-gamepad.yaml`
+- Recipe ID: `drone-single-mujoco-threejs-gamepad`
+
+このRecipeは、Hakoniwa Drone、MuJoCo Viewer、DroneVisualStatePublisher、WebBridge、Three.js Viewer、ゲームパッド制御を一つのLauncher sessionとして生成します。
+
+```text
+hakoniwa-business-pack/
+└── recipes/examples/drone-single-mujoco-threejs-gamepad.yaml
+```
+
+Recipe側が、Foundation Python、実行バイナリ、設定、WebBridge、HTTP server、ログ、終了処理を所有します。本リポジトリのREADMEでは、OS固有のDrone serviceバイナリパスを固定しません。
+
+手動統合する場合も、次の順序を守ります。
+
+1. Hakoniwa CoreとDrone serviceを起動
+2. DroneVisualStatePublisherを起動
+3. `hakoniwa-pdu-bridge-core`のWebBridgeを起動
+4. 本リポジトリをHTTP配信
+5. Browser ViewerからWebSocketへ接続
+
+## UI
+
+- `connect`: WebSocket PDU接続
+- Drone selector: 注視対象の選択
+- `Follow selected`: 選択機体への追従
+- Mouse control: OrbitControlsによるメインカメラ操作
+- Fault injection: ローター出力倍率の設定
+- Wind: 風向・風速の設定と送信
+
+## CI
+
+GitHub Actionsでは、recursive submodule checkout後に次を実行します。
+
+```bash
+python tools/hako.py doctor
+python tools/hako.py test
+python tools/hako.py smoke
+```
+
+## 関連リポジトリ
+
+- `hakoniwa-drone-core`: ドローン物理、状態publisher、環境・センサモデル
+- `hakoniwa-pdu-bridge-core`: shared-memory PDUとWebSocketの橋渡し
+- `hakoniwa-pdu-javascript`: ブラウザ側PDU通信
+- `hakoniwa-map-viewer`: Leaflet地図と本Viewerの統合
+- `hakoniwa-business-pack`: FoundationとRecipe workspaceの生成
