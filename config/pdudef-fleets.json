@@ -3,12 +3,20 @@
     {
       "id": "visual_state_type",
       "path": "pdudef-fleets-pdutypes.json"
+    },
+    {
+      "id": "control_type",
+      "path": "pdudef-control-pdutypes.json"
     }
   ],
   "robots": [
     {
       "name": "DroneVisualStatePublisher",
       "pdutypes_id": "visual_state_type"
+    },
+    {
+      "name": "Drone",
+      "pdutypes_id": "control_type"
     }
   ]
 }
