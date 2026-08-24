@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setNightMode, getNightMode } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -77,6 +77,8 @@ export class DroneViewer {
     this.faultInjectionState = new FaultInjectionState();
     this.disturbanceWriter = new DisturbanceWriter();
     this.syncHookInstalled = false;
+    this.syncInFlight = null;
+    this.syncElapsedMsec = Number.POSITIVE_INFINITY;
     if (config && Object.keys(config).length > 0) {
       this.configure(config);
     }
@@ -111,7 +113,13 @@ export class DroneViewer {
     });
     this.renderManager = new DroneRenderManager({ getDrones });
     if (!this.syncHookInstalled) {
-      setBeforeDronesUpdateHook(() => {
+      setBeforeDronesUpdateHook((dt) => {
+        const intervalMsec = this.viewerConfig?.ui?.statePanelIntervalMsec ?? 100;
+        this.syncElapsedMsec += Math.max(0, Number(dt) || 0) * 1000;
+        if (this.syncElapsedMsec < intervalMsec || this.syncInFlight) {
+          return;
+        }
+        this.syncElapsedMsec = 0;
         this.syncDroneStates().catch((e) => {
           console.error("[DroneViewer] syncDroneStates failed:", e);
         });
@@ -174,16 +182,26 @@ export class DroneViewer {
 
   async syncDroneStates() {
     if (!this.stateSource) return;
-    await this.stateSource.update();
-    if (!this.renderManager) return;
-    const statesByDroneId = new Map();
-    for (const drone of getDrones()) {
-      const state = this.stateSource.getState(drone.droneId);
-      if (state) {
-        statesByDroneId.set(String(drone.droneId), state);
-      }
+    if (this.syncInFlight) {
+      return this.syncInFlight;
     }
-    this.renderManager.applyStates(statesByDroneId);
+    this.syncInFlight = (async () => {
+      await this.stateSource.update();
+      if (!this.renderManager) return;
+      const statesByDroneId = new Map();
+      for (const drone of getDrones()) {
+        const state = this.stateSource.getState(drone.droneId);
+        if (state) {
+          statesByDroneId.set(String(drone.droneId), state);
+        }
+      }
+      this.renderManager.applyStates(statesByDroneId);
+    })();
+    try {
+      return await this.syncInFlight;
+    } finally {
+      this.syncInFlight = null;
+    }
   }
 
   getDrones() {
@@ -210,6 +228,14 @@ export class DroneViewer {
 
   setFollowSelectedEnabled(enabled) {
     return setCameraFollowEnabled(!!enabled);
+  }
+
+  setNightMode(enabled) {
+    return setNightMode(!!enabled);
+  }
+
+  getNightMode() {
+    return getNightMode();
   }
 
   getRotorFaultScales() {

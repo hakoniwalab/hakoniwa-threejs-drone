@@ -21,6 +21,8 @@ const loader = createGltfLoader(THREE);
 let orbitCam = null;
 let drones = [];
 let beforeDronesUpdateHook = null;
+let nightMode = false;
+let ledAnimationTimeSec = 0;
 const runtimeOptions = {
   enableAttachedCameras: true,
   enableMainCameraMouseControl: true,
@@ -100,6 +102,45 @@ container.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf1f4f8);
 
+function createStarField() {
+  const positions = [];
+  // Deterministic pseudo-random stars keep screenshots and tests reproducible.
+  let seed = 0x48a4c0de;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+  for (let i = 0; i < 700; i++) {
+    const azimuth = random() * Math.PI * 2;
+    const elevation = 0.08 + random() * (Math.PI / 2 - 0.08);
+    const radius = 700;
+    positions.push(
+      radius * Math.cos(elevation) * Math.cos(azimuth),
+      radius * Math.sin(elevation),
+      radius * Math.cos(elevation) * Math.sin(azimuth),
+    );
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xbcd7ff,
+    size: 1.15,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const stars = new THREE.Points(geometry, material);
+  stars.name = "night_star_field";
+  stars.visible = false;
+  stars.frustumCulled = false;
+  return stars;
+}
+
+const starField = createStarField();
+scene.add(starField);
+
 // light
 const hemi = new THREE.HemisphereLight(0xffffff, 0xa0a0a0, 1.15);
 hemi.position.set(0, 20, 0);
@@ -111,6 +152,129 @@ scene.add(dir);
 
 const ambient = new THREE.AmbientLight(0xffffff, 0.55);
 scene.add(ambient);
+
+const DAY_LIGHTING = {
+  background: 0xf1f4f8,
+  hemisphereSky: 0xffffff,
+  hemisphereGround: 0xa0a0a0,
+  hemisphereIntensity: 1.15,
+  directionalColor: 0xffffff,
+  directionalIntensity: 1.5,
+  ambientColor: 0xffffff,
+  ambientIntensity: 0.55,
+  exposure: 1.25,
+};
+const NIGHT_LIGHTING = {
+  background: 0x020817,
+  hemisphereSky: 0x182a52,
+  hemisphereGround: 0x02040a,
+  hemisphereIntensity: 0.22,
+  directionalColor: 0x9bbcff,
+  directionalIntensity: 0.38,
+  ambientColor: 0x20345c,
+  ambientIntensity: 0.18,
+  exposure: 0.72,
+};
+
+function applyLighting(mode) {
+  const lighting = mode ? NIGHT_LIGHTING : DAY_LIGHTING;
+  scene.background.setHex(lighting.background);
+  renderer.setClearColor(lighting.background, 1.0);
+  hemi.color.setHex(lighting.hemisphereSky);
+  hemi.groundColor.setHex(lighting.hemisphereGround);
+  hemi.intensity = lighting.hemisphereIntensity;
+  dir.color.setHex(lighting.directionalColor);
+  dir.intensity = lighting.directionalIntensity;
+  ambient.color.setHex(lighting.ambientColor);
+  ambient.intensity = lighting.ambientIntensity;
+  renderer.toneMappingExposure = lighting.exposure;
+  starField.visible = mode;
+}
+
+function createLedGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const context = canvas.getContext("2d");
+  const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0.00, "rgba(255,255,255,1.0)");
+  gradient.addColorStop(0.12, "rgba(190,245,255,1.0)");
+  gradient.addColorStop(0.32, "rgba(30,210,255,0.82)");
+  gradient.addColorStop(0.68, "rgba(0,125,255,0.24)");
+  gradient.addColorStop(1.00, "rgba(0,60,255,0.0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+const ledGlowTexture = createLedGlowTexture();
+
+function createLedSprite(name, scale, opacity) {
+  const material = new THREE.SpriteMaterial({
+    map: ledGlowTexture,
+    color: 0x5ee9ff,
+    transparent: true,
+    opacity,
+    depthTest: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.name = name;
+  sprite.scale.setScalar(scale);
+  sprite.renderOrder = 20;
+  return sprite;
+}
+
+function attachShowLed(drone, index) {
+  if (!drone?.root?.object3d) return;
+  const name = drone.droneId ?? `Drone-${index + 1}`;
+  const led = new THREE.Group();
+  led.name = `${name}_show_led`;
+  // Three.js Y is up. Mount the billboard slightly below the body so it is
+  // visible when the audience looks up at the show.
+  led.position.set(0, -0.16, 0);
+  led.userData.showLedIndex = index;
+  led.userData.core = createLedSprite(`${name}_show_led_core`, 0.34, 1.0);
+  led.userData.halo = createLedSprite(`${name}_show_led_halo`, 1.55, 0.7);
+  led.add(led.userData.halo);
+  led.add(led.userData.core);
+  drone.root.object3d.add(led);
+  drone.showLed = led;
+}
+
+function updateShowLeds(dt) {
+  ledAnimationTimeSec += dt;
+  for (let index = 0; index < drones.length; index++) {
+    const led = drones[index]?.showLed;
+    const core = led?.userData?.core;
+    const halo = led?.userData?.halo;
+    if (!core?.material || !halo?.material) continue;
+
+    // A roughly 4.5-second shared breathing cycle remains comfortable to
+    // watch while preserving the silhouette of the complete formation.
+    const groupWave = 0.5 + 0.5 * Math.sin(ledAnimationTimeSec * Math.PI * 2 * 0.22);
+    const shimmer = 0.98 + 0.02 * Math.sin(ledAnimationTimeSec * 1.7 + index * 0.13);
+    const pulse = (0.48 + 0.52 * groupWave) * shimmer;
+    core.material.opacity = (nightMode ? 1.0 : 0.48) * (0.72 + 0.28 * pulse);
+    halo.material.opacity = (nightMode ? 0.74 : 0.18) * pulse;
+    core.scale.setScalar((nightMode ? 0.46 : 0.28) * (0.96 + 0.07 * pulse));
+    halo.scale.setScalar((nightMode ? 1.65 : 0.72) * (0.88 + 0.18 * pulse));
+  }
+}
+
+export function setNightMode(enabled) {
+  nightMode = !!enabled;
+  applyLighting(nightMode);
+  return nightMode;
+}
+
+export function getNightMode() {
+  return nightMode;
+}
 
 // カメラ初期位置計算用
 const tmpVec3 = new THREE.Vector3();
@@ -146,6 +310,7 @@ export async function main(
       motorChannels: [0, 1, 2, 3],
       rotorScale: 200.0,
     });
+    attachShowLed(drone, i);
     drones.push(drone);
   }
 
@@ -227,6 +392,7 @@ function animate() {
   for (let i = 0; i < drones.length; i++) {
     drones[i].update(dt, keyState);
   }
+  updateShowLeds(dt);
   if (keyState["1"]) {
     orbitCam.updateFollowDistance(-dt * 1.0);
   }

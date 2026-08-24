@@ -39,6 +39,8 @@ class StaticViewerContractTest(unittest.TestCase):
             "getDrones()",
             "focusDroneById(",
             "setFollowSelectedEnabled(",
+            "setNightMode(",
+            "getNightMode()",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
@@ -50,6 +52,34 @@ class StaticViewerContractTest(unittest.TestCase):
         ):
             with self.subTest(path=relative):
                 self.assertTrue((ROOT / relative).is_file())
+
+    def test_fleet_pdu_polling_is_single_flight_and_throttled(self) -> None:
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        source = (ROOT / "src/state_source/fleet_state_source.js").read_text(encoding="utf-8")
+        for marker in (
+            "this.syncInFlight = null",
+            "this.syncElapsedMsec",
+            "statePanelIntervalMsec ?? 100",
+            "if (this.syncInFlight)",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, viewer)
+        self.assertIn("skipped an incomplete visual-state packet", source)
+        self.assertIn("lastInvalidPacketWarningMsec", source)
+
+    def test_night_show_preserves_word_readability(self) -> None:
+        source = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        for marker in (
+            "const NIGHT_LIGHTING",
+            "renderer.setClearColor(lighting.background, 1.0)",
+            "starField.visible = mode",
+            "createLedGlowTexture",
+            "led.position.set(0, -0.16, 0)",
+            "Math.PI * 2 * 0.22",
+            "shared breathing cycle",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, source)
 
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

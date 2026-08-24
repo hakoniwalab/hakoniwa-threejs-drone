@@ -15,6 +15,7 @@ export class FleetStateSource extends IStateSource {
     this.stateByDrone = new Map();
     this.visualStateChannels = [];
     this.declared = false;
+    this.lastInvalidPacketWarningMsec = 0;
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -136,8 +137,22 @@ export class FleetStateSource extends IStateSource {
       for (const ch of this.visualStateChannels) {
         const buf = pdu.read_pdu_raw_data(ch.robotName, ch.pduName);
         if (!buf) continue;
-        const packet = pduToJs_DroneVisualStateArray(buf);
-        this.applyPacket(packet);
+        try {
+          const packet = pduToJs_DroneVisualStateArray(buf);
+          this.applyPacket(packet);
+        } catch (error) {
+          const message = String(error?.message ?? error);
+          if (!message.includes("MetaData not found or corrupted")) {
+            throw error;
+          }
+          const now = Date.now();
+          if (now - this.lastInvalidPacketWarningMsec >= 5000) {
+            console.warn(
+              `[FleetStateSource] skipped an incomplete visual-state packet on ${ch.robotName}/${ch.pduName}`,
+            );
+            this.lastInvalidPacketWarningMsec = now;
+          }
+        }
       }
     });
   }
