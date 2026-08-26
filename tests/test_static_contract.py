@@ -86,6 +86,26 @@ class StaticViewerContractTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
 
+    def test_drone_body_color_is_an_optional_viewer_setting(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/viewer-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        appearance = schema["properties"]["three"]["properties"][
+            "droneAppearance"
+        ]
+        self.assertEqual(
+            appearance["properties"]["bodyColor"]["pattern"],
+            "^#[0-9A-Fa-f]{6}$",
+        )
+        drone = (ROOT / "src/drone.js").read_text(encoding="utf-8")
+        app = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("m.color.set(this.bodyColor)", drone)
+        self.assertIn("bodyColor: droneAppearance.bodyColor ?? null", app)
+        self.assertIn("three.droneAppearance.bodyColor must be a #RRGGBB color", viewer)
+
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for command in (

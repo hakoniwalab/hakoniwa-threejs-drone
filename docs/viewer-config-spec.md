@@ -5,14 +5,15 @@
 `viewer_config` は、上位アプリ（threejs デモ / map-viewer）が
 `DroneViewer` を起動するための外部設定です。
 
-v1.0 では以下だけを外部仕様にします。
+v1.0 では以下を外部仕様にします。
 
 1. three シーン定義の場所
 2. PDU 接続情報
 3. 状態入力モード（legacy / fleets）
 4. UI更新周期（任意）
+5. ドローン本体の外観（任意）
 
-描画パラメータ（レンダリング最適化やローター係数など）は v1.0 では内部実装責務です。
+ローター係数などのレンダリング最適化パラメータは内部実装責務です。
 
 ## 1.1 配置と受け渡し方針
 
@@ -53,6 +54,11 @@ v1.0 では以下だけを外部仕様にします。
   - threejs のシーン定義 JSON へのパス
   - compact scene config を指定する
   - 例: `/config/drone_config-compact-1.json`
+- `droneAppearance` (`object`, 任意)
+  - `bodyColor` (`string`, 任意)
+    - 本体フレームGLBのマテリアル色を`#RRGGBB`形式で上書きする
+    - 未指定時はGLBに格納された元の色を維持する
+    - プロペラ、カメラおよびShow LEDには適用しない
 
 ### 3.3 `pdu`
 
@@ -126,7 +132,10 @@ v1.0 では以下だけを外部仕様にします。
 {
   "version": "1.0",
   "three": {
-    "sceneConfigPath": "/config/drone_config-compact-1.json"
+    "sceneConfigPath": "/config/drone_config-compact-1.json",
+    "droneAppearance": {
+      "bodyColor": "#E8EDF2"
+    }
   },
   "pdu": {
     "pduDefPath": "/config/pdudef-fleets.json",

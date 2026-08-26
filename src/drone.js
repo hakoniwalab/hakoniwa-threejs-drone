@@ -7,6 +7,7 @@ export class Drone {
         motorChannels = [0, 1, 2, 3],
         rotorScale = 200.0,
         pduPollIntervalMs = 100,
+        bodyColor = null,
     } = {}) {
         this.scene = scene;
         this.loader = loader;
@@ -17,6 +18,7 @@ export class Drone {
         this.motorChannels = motorChannels;
         this.rotorScale = rotorScale;
         this.pduPollIntervalMs = pduPollIntervalMs;
+        this.bodyColor = bodyColor;
 
         // 描画用
         this.root = null;
@@ -58,6 +60,9 @@ export class Drone {
                 const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
                 for (const m of mats) {
                     if (!m) continue;
+                    if (this.bodyColor && m.color?.set) {
+                        m.color.set(this.bodyColor);
+                    }
                     if (typeof m.emissiveIntensity === "number") {
                         m.emissive = new THREE.Color(0x2a2a2a);
                         m.emissiveIntensity = 0.22;

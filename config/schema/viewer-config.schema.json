@@ -25,6 +25,16 @@
         "sceneConfigPath": {
           "type": "string",
           "minLength": 1
+        },
+        "droneAppearance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bodyColor": {
+              "type": "string",
+              "pattern": "^#[0-9A-Fa-f]{6}$"
+            }
+          }
         }
       }
     },

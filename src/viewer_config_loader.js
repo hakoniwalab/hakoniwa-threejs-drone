@@ -82,6 +82,13 @@ function validateViewerConfigShape(cfg, configUrl) {
   if (!cfg.three?.sceneConfigPath) {
     throw new Error(`[ViewerConfigLoader] three.sceneConfigPath is required: ${configUrl}`);
   }
+  const bodyColor = cfg.three?.droneAppearance?.bodyColor;
+  if (
+    bodyColor != null
+    && (typeof bodyColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(bodyColor))
+  ) {
+    throw new Error(`[ViewerConfigLoader] three.droneAppearance.bodyColor must be a #RRGGBB color: ${configUrl}`);
+  }
   if (!cfg.pdu?.pduDefPath) {
     throw new Error(`[ViewerConfigLoader] pdu.pduDefPath is required: ${configUrl}`);
   }

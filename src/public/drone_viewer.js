@@ -22,6 +22,13 @@ function validateViewerConfig(config) {
   if (!config.pdu?.wsUri) {
     throw new Error("[DroneViewer] pdu.wsUri is required.");
   }
+  const bodyColor = config.three?.droneAppearance?.bodyColor;
+  if (
+    bodyColor != null
+    && (typeof bodyColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(bodyColor))
+  ) {
+    throw new Error("[DroneViewer] three.droneAppearance.bodyColor must be a #RRGGBB color.");
+  }
   const mode = config.stateInput?.mode;
   if (mode !== "legacy" && mode !== "fleets") {
     throw new Error(`[DroneViewer] Invalid stateInput.mode: ${mode}`);
@@ -110,6 +117,7 @@ export class DroneViewer {
       dynamicSpawn: this.viewerConfig?.stateInput?.mode === "fleets" && !!fleetOptions.dynamicSpawn,
       templateDroneIndex: fleetOptions.templateDroneIndex ?? 0,
       maxDynamicDrones: fleetOptions.maxDynamicDrones ?? 1,
+      droneAppearance: this.viewerConfig?.three?.droneAppearance ?? {},
     });
     this.renderManager = new DroneRenderManager({ getDrones });
     if (!this.syncHookInstalled) {

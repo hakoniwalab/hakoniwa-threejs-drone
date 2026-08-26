@@ -346,6 +346,7 @@ export async function main(
     dynamicSpawn = false,
     templateDroneIndex = 0,
     maxDynamicDrones = 1,
+    droneAppearance = {},
   } = {},
 ) {
   console.log("[Hakoniwa] main() start. loading config:", url);
@@ -367,6 +368,7 @@ export async function main(
     const drone = await Drone.create(scene, loader, droneInstances[i], {
       motorChannels: [0, 1, 2, 3],
       rotorScale: 200.0,
+      bodyColor: droneAppearance.bodyColor ?? null,
     });
     attachShowLed(drone, i);
     drones.push(drone);
