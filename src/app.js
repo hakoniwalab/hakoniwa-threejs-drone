@@ -23,6 +23,8 @@ let drones = [];
 let beforeDronesUpdateHook = null;
 let nightMode = false;
 let ledAnimationTimeSec = 0;
+let ledAppearanceScale = 1.0;
+let ledAppearanceIntensity = 1.0;
 const runtimeOptions = {
   enableAttachedCameras: true,
   enableMainCameraMouseControl: true,
@@ -274,6 +276,18 @@ export function setDroneLedStates(states = []) {
   return applied;
 }
 
+export function setDroneLedAppearance(options = {}) {
+  const scale = Number(options.scale ?? 1.0);
+  const intensity = Number(options.intensity ?? 1.0);
+  if (!Number.isFinite(scale) || scale <= 0 || scale > 4
+    || !Number.isFinite(intensity) || intensity <= 0 || intensity > 4) {
+    throw new TypeError("[Hakoniwa] LED appearance requires scale and intensity within (0, 4].");
+  }
+  ledAppearanceScale = scale;
+  ledAppearanceIntensity = intensity;
+  return { scale: ledAppearanceScale, intensity: ledAppearanceIntensity };
+}
+
 function updateShowLeds(dt) {
   ledAnimationTimeSec += dt;
   for (let index = 0; index < drones.length; index++) {
@@ -291,10 +305,22 @@ function updateShowLeds(dt) {
     const groupWave = 0.5 + 0.5 * Math.sin(ledAnimationTimeSec * Math.PI * 2 * 0.22);
     const shimmer = 0.98 + 0.02 * Math.sin(ledAnimationTimeSec * 1.7 + index * 0.13);
     const pulse = (0.48 + 0.52 * groupWave) * shimmer;
-    core.material.opacity = brightness * (nightMode ? 1.0 : 0.48) * (0.72 + 0.28 * pulse);
-    halo.material.opacity = brightness * (nightMode ? 0.74 : 0.18) * pulse;
-    core.scale.setScalar((nightMode ? 0.46 : 0.28) * (0.96 + 0.07 * pulse));
-    halo.scale.setScalar((nightMode ? 1.65 : 0.72) * (0.88 + 0.18 * pulse));
+    core.material.opacity = THREE.MathUtils.clamp(
+      brightness * (nightMode ? 1.0 : 0.48) * (0.72 + 0.28 * pulse) * ledAppearanceIntensity,
+      0,
+      1,
+    );
+    halo.material.opacity = THREE.MathUtils.clamp(
+      brightness * (nightMode ? 0.74 : 0.18) * pulse * ledAppearanceIntensity,
+      0,
+      1,
+    );
+    core.scale.setScalar(
+      (nightMode ? 0.46 : 0.28) * (0.96 + 0.07 * pulse) * ledAppearanceScale,
+    );
+    halo.scale.setScalar(
+      (nightMode ? 1.65 : 0.72) * (0.88 + 0.18 * pulse) * ledAppearanceScale,
+    );
   }
 }
 

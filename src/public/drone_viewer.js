@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setNightMode, getNightMode, setDroneLedStates } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -252,6 +252,10 @@ export class DroneViewer {
 
   setDroneLedStates(states = []) {
     return setDroneLedStates(states);
+  }
+
+  setDroneLedAppearance(options = {}) {
+    return setDroneLedAppearance(options);
   }
 
   getRotorFaultScales() {

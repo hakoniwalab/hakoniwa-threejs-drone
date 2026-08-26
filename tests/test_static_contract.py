@@ -43,6 +43,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "setNightMode(",
             "getNightMode()",
             "setDroneLedStates(states",
+            "setDroneLedAppearance(options",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
@@ -79,6 +80,8 @@ class StaticViewerContractTest(unittest.TestCase):
             "led.position.set(0, -0.16, 0)",
             "Math.PI * 2 * 0.22",
             "shared breathing cycle",
+            "ledAppearanceScale",
+            "ledAppearanceIntensity",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
