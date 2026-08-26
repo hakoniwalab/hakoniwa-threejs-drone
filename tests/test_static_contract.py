@@ -42,6 +42,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "setFollowSelectedEnabled(",
             "setNightMode(",
             "getNightMode()",
+            "setDroneLedStates(states",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)

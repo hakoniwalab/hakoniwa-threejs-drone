@@ -246,6 +246,34 @@ function attachShowLed(drone, index) {
   drone.showLed = led;
 }
 
+export function setDroneLedStates(states = []) {
+  if (!Array.isArray(states)) {
+    throw new TypeError("[Hakoniwa] LED states must be an array.");
+  }
+  const byDroneId = new Map(drones.map((drone) => [String(drone.droneId), drone]));
+  let applied = 0;
+  for (const state of states) {
+    const droneId = String(state?.droneId ?? state?.drone_id ?? "");
+    const rgb = state?.rgb;
+    const brightness = Number(state?.brightness);
+    if (!droneId || !Array.isArray(rgb) || rgb.length !== 3
+      || rgb.some((value) => !Number.isInteger(value) || value < 0 || value > 255)
+      || !Number.isFinite(brightness) || brightness < 0 || brightness > 1) {
+      throw new TypeError(`[Hakoniwa] Invalid LED state for drone '${droneId}'.`);
+    }
+    const led = byDroneId.get(droneId)?.showLed;
+    const core = led?.userData?.core;
+    const halo = led?.userData?.halo;
+    if (!core?.material || !halo?.material) continue;
+    const color = new THREE.Color().setStyle(`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`);
+    core.material.color.copy(color);
+    halo.material.color.copy(color);
+    led.userData.showLedBrightness = brightness;
+    applied += 1;
+  }
+  return applied;
+}
+
 function updateShowLeds(dt) {
   ledAnimationTimeSec += dt;
   for (let index = 0; index < drones.length; index++) {
@@ -253,14 +281,18 @@ function updateShowLeds(dt) {
     const core = led?.userData?.core;
     const halo = led?.userData?.halo;
     if (!core?.material || !halo?.material) continue;
+    const brightness = Number.isFinite(led.userData.showLedBrightness)
+      ? THREE.MathUtils.clamp(led.userData.showLedBrightness, 0, 1)
+      : 1.0;
+    led.visible = brightness > 0;
 
     // A roughly 4.5-second shared breathing cycle remains comfortable to
     // watch while preserving the silhouette of the complete formation.
     const groupWave = 0.5 + 0.5 * Math.sin(ledAnimationTimeSec * Math.PI * 2 * 0.22);
     const shimmer = 0.98 + 0.02 * Math.sin(ledAnimationTimeSec * 1.7 + index * 0.13);
     const pulse = (0.48 + 0.52 * groupWave) * shimmer;
-    core.material.opacity = (nightMode ? 1.0 : 0.48) * (0.72 + 0.28 * pulse);
-    halo.material.opacity = (nightMode ? 0.74 : 0.18) * pulse;
+    core.material.opacity = brightness * (nightMode ? 1.0 : 0.48) * (0.72 + 0.28 * pulse);
+    halo.material.opacity = brightness * (nightMode ? 0.74 : 0.18) * pulse;
     core.scale.setScalar((nightMode ? 0.46 : 0.28) * (0.96 + 0.07 * pulse));
     halo.scale.setScalar((nightMode ? 1.65 : 0.72) * (0.88 + 0.18 * pulse));
   }
