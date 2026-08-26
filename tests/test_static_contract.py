@@ -32,6 +32,8 @@ class StaticViewerContractTest(unittest.TestCase):
         for marker in (
             "export class DroneViewer",
             "export function createDroneViewer",
+            "withPdu(callback)",
+            "setMainCameraPoseRos(positionRos, targetRos)",
             "configure(partialConfig",
             "async initialize(",
             "async connectPdu(",
