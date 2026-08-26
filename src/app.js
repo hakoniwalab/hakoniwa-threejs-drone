@@ -375,16 +375,6 @@ export function setCameraFollowEnabled(enabled) {
   return true;
 }
 
-export function setMainCameraPoseRos(positionRos, targetRos) {
-  if (!orbitCam) return false;
-  const position = HakoniwaFrame.rosPosToThree(positionRos);
-  const target = HakoniwaFrame.rosPosToThree(targetRos);
-  return orbitCam.setPose(
-    [position.x, position.y, position.z],
-    [target.x, target.y, target.z],
-  );
-}
-
 // -------------------------------------------------------------
 //  loop
 // -------------------------------------------------------------

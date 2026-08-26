@@ -76,19 +76,6 @@ export class OrbitCamera {
     this.mode = mode;
   }
 
-  setPose(position, target) {
-    if (!Array.isArray(position) || position.length !== 3 ||
-        !Array.isArray(target) || target.length !== 3) {
-      return false;
-    }
-    this.setMode("fixed");
-    this.camera.position.set(...position);
-    this.controls.target.set(...target);
-    this.followDistance = this.camera.position.distanceTo(this.controls.target);
-    this.controls.update();
-    return true;
-  }
-
   toggleMode() {
     this.mode = (this.mode === "follow") ? "fixed" : "follow";
     console.log("[OrbitCamera] mode:", this.mode);

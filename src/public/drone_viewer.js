@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setMainCameraPoseRos, setNightMode, getNightMode } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setNightMode, getNightMode } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -171,9 +171,9 @@ export class DroneViewer {
   }
 
   /**
-   * Run a short operation against the PDU session already owned by this
-   * viewer. Add-on UIs can declare and exchange their own raw PDU channels
-   * without opening a second WebSocket connection.
+   * Run an operation against the PDU session already owned by this viewer.
+   * Add-on UIs can exchange their own raw PDU channels without opening a
+   * second WebSocket connection.
    */
   withPdu(callback) {
     if (typeof callback !== "function") {
@@ -240,11 +240,6 @@ export class DroneViewer {
 
   setFollowSelectedEnabled(enabled) {
     return setCameraFollowEnabled(!!enabled);
-  }
-
-  /** Set a fixed main-camera pose using Hakoniwa/ROS coordinates. */
-  setMainCameraPoseRos(positionRos, targetRos) {
-    return setMainCameraPoseRos(positionRos, targetRos);
   }
 
   setNightMode(enabled) {
