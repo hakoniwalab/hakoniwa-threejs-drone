@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { HakoniwaFrame } from "./frame.js";
 import { createGltfLoader, loadConfig } from "./loader.js";
 import { OrbitCamera } from "./orbit_camera.js";
+import { AudienceCamera } from "./audience_camera.js";
 import { buildEnvironments } from './environment.js';
 import { Drone } from "./drone.js";
 
@@ -19,6 +20,8 @@ if (!container) {
 const loader = createGltfLoader(THREE);
 
 let orbitCam = null;
+let audienceCam = null;
+let orbitCameraSnapshot = null;
 let drones = [];
 let beforeDronesUpdateHook = null;
 let nightMode = false;
@@ -89,9 +92,42 @@ export function setViewerRuntimeOptions(options = {}) {
   if (typeof options.enableMainCameraMouseControl === "boolean") {
     runtimeOptions.enableMainCameraMouseControl = options.enableMainCameraMouseControl;
   }
-  if (orbitCam) {
+  if (orbitCam && !audienceCam?.enabled) {
     orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
   }
+}
+
+export function setAudienceCameraEnabled(enabled) {
+  if (!orbitCam || !audienceCam) return false;
+  const next = !!enabled;
+  if (next === audienceCam.enabled) return true;
+  if (next) {
+    orbitCameraSnapshot = {
+      position: orbitCam.camera.position.clone(),
+      quaternion: orbitCam.camera.quaternion.clone(),
+      target: orbitCam.controls.target.clone(),
+      fov: orbitCam.camera.fov,
+      mode: orbitCam.mode,
+    };
+    orbitCam.setMouseControlEnabled(false);
+  } else {
+    if (orbitCameraSnapshot) {
+      orbitCam.camera.position.copy(orbitCameraSnapshot.position);
+      orbitCam.camera.quaternion.copy(orbitCameraSnapshot.quaternion);
+      orbitCam.camera.fov = orbitCameraSnapshot.fov;
+      orbitCam.camera.updateProjectionMatrix();
+      orbitCam.controls.target.copy(orbitCameraSnapshot.target);
+      orbitCam.setMode(orbitCameraSnapshot.mode);
+      orbitCam.controls.update();
+    }
+    orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
+  }
+  audienceCam.setEnabled(next);
+  return true;
+}
+
+export function getAudienceCameraState() {
+  return audienceCam?.getState() ?? null;
 }
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -347,6 +383,8 @@ export async function main(
     templateDroneIndex = 0,
     maxDynamicDrones = 1,
     droneAppearance = {},
+    audienceCamera = null,
+    initialCameraMode = "free",
   } = {},
 ) {
   console.log("[Hakoniwa] main() start. loading config:", url);
@@ -414,6 +452,10 @@ export async function main(
   }
 
   scene.add(orbitCam.entity.object3d);
+  if (audienceCamera) {
+    audienceCam = new AudienceCamera(orbitCam.camera, renderer.domElement, audienceCamera);
+    if (initialCameraMode === "audience") setAudienceCameraEnabled(true);
+  }
   animate();
 }
 
@@ -453,15 +495,16 @@ function animate() {
     drones[i].update(dt, keyState);
   }
   updateShowLeds(dt);
-  if (keyState["1"]) {
+  if (!audienceCam?.enabled && keyState["1"]) {
     orbitCam.updateFollowDistance(-dt * 1.0);
   }
-  if (keyState["2"]) {
+  if (!audienceCam?.enabled && keyState["2"]) {
     orbitCam.updateFollowDistance(dt * 1.0);
   }
 
   if (orbitCam) {
-    orbitCam.update(dt);
+    if (audienceCam?.enabled) audienceCam.update(dt);
+    else orbitCam.update(dt);
 
     const w = container.clientWidth;
     const h = container.clientHeight;

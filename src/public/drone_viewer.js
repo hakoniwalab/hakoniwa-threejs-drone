@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -28,6 +28,28 @@ function validateViewerConfig(config) {
     && (typeof bodyColor !== "string" || !/^#[0-9a-fA-F]{6}$/.test(bodyColor))
   ) {
     throw new Error("[DroneViewer] three.droneAppearance.bodyColor must be a #RRGGBB color.");
+  }
+  const cameraMode = config.three?.initialCameraMode ?? "free";
+  if (cameraMode !== "free" && cameraMode !== "audience") {
+    throw new Error("[DroneViewer] three.initialCameraMode must be free or audience.");
+  }
+  const audience = config.three?.audienceCamera;
+  if (cameraMode === "audience" && !audience) {
+    throw new Error("[DroneViewer] three.audienceCamera is required for audience initialCameraMode.");
+  }
+  if (audience != null) {
+    if (!Array.isArray(audience.positionM) || audience.positionM.length !== 3 || audience.positionM.some((v) => !Number.isFinite(v))) {
+      throw new Error("[DroneViewer] three.audienceCamera.positionM must contain three finite numbers.");
+    }
+    for (const key of ["yawDeg", "pitchDeg", "fovDeg"]) {
+      if (!Number.isFinite(audience[key])) throw new Error(`[DroneViewer] three.audienceCamera.${key} must be a finite number.`);
+    }
+    if (audience.pitchDeg < -85 || audience.pitchDeg > 85) {
+      throw new Error("[DroneViewer] three.audienceCamera.pitchDeg must be between -85 and 85.");
+    }
+    if (audience.fovDeg < 25 || audience.fovDeg > 90) {
+      throw new Error("[DroneViewer] three.audienceCamera.fovDeg must be between 25 and 90.");
+    }
   }
   const mode = config.stateInput?.mode;
   if (mode !== "legacy" && mode !== "fleets") {
@@ -118,6 +140,8 @@ export class DroneViewer {
       templateDroneIndex: fleetOptions.templateDroneIndex ?? 0,
       maxDynamicDrones: fleetOptions.maxDynamicDrones ?? 1,
       droneAppearance: this.viewerConfig?.three?.droneAppearance ?? {},
+      audienceCamera: this.viewerConfig?.three?.audienceCamera ?? null,
+      initialCameraMode: this.viewerConfig?.three?.initialCameraMode ?? "free",
     });
     this.renderManager = new DroneRenderManager({ getDrones });
     if (!this.syncHookInstalled) {
@@ -248,6 +272,14 @@ export class DroneViewer {
 
   setFollowSelectedEnabled(enabled) {
     return setCameraFollowEnabled(!!enabled);
+  }
+
+  setAudienceCameraEnabled(enabled) {
+    return setAudienceCameraEnabled(!!enabled);
+  }
+
+  getAudienceCameraState() {
+    return getAudienceCameraState();
   }
 
   setNightMode(enabled) {

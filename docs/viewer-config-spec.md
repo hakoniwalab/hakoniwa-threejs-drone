@@ -12,6 +12,7 @@ v1.0 では以下を外部仕様にします。
 3. 状態入力モード（legacy / fleets）
 4. UI更新周期（任意）
 5. ドローン本体の外観（任意）
+6. 観客視点カメラ（任意）
 
 ローター係数などのレンダリング最適化パラメータは内部実装責務です。
 
@@ -59,6 +60,17 @@ v1.0 では以下を外部仕様にします。
     - 本体フレームGLBのマテリアル色を`#RRGGBB`形式で上書きする
     - 未指定時はGLBに格納された元の色を維持する
     - プロペラ、カメラおよびShow LEDには適用しない
+- `initialCameraMode` (`string`, 任意, 既定: `"free"`)
+  - `"free"`: 従来のOrbitカメラ
+  - `"audience"`: `audienceCamera`で指定した観客視点
+- `audienceCamera` (`object`, 任意)
+  - `positionM`: ローカルENU座標 `[East, North, Up]` [m]
+  - `yawDeg`: 水平向き。0度はEast、正方向はNorth側
+  - `pitchDeg`: 仰角。0度は水平、正方向は上（範囲: -85〜85度）
+  - `fovDeg`: 垂直画角（範囲: 25〜90度）
+  - 観客視点では矢印キーで前後左右、`U`/`D`で上下、`Shift`併用で高速移動する
+  - 左ドラッグでyaw、右ドラッグでpitch、ホイールでFOVを変更する
+  - `initialCameraMode = "audience"`の場合は必須
 
 ### 3.3 `pdu`
 

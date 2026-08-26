@@ -35,6 +35,27 @@
               "pattern": "^#[0-9A-Fa-f]{6}$"
             }
           }
+        },
+        "initialCameraMode": {
+          "type": "string",
+          "enum": ["free", "audience"],
+          "default": "free"
+        },
+        "audienceCamera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positionM", "yawDeg", "pitchDeg", "fovDeg"],
+          "properties": {
+            "positionM": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": { "type": "number" }
+            },
+            "yawDeg": { "type": "number" },
+            "pitchDeg": { "type": "number", "minimum": -85, "maximum": 85 },
+            "fovDeg": { "type": "number", "minimum": 25, "maximum": 90 }
+          }
         }
       }
     },

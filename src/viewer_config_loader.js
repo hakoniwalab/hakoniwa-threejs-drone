@@ -89,6 +89,27 @@ function validateViewerConfigShape(cfg, configUrl) {
   ) {
     throw new Error(`[ViewerConfigLoader] three.droneAppearance.bodyColor must be a #RRGGBB color: ${configUrl}`);
   }
+  const cameraMode = cfg.three?.initialCameraMode ?? "free";
+  if (cameraMode !== "free" && cameraMode !== "audience") {
+    throw new Error(`[ViewerConfigLoader] three.initialCameraMode must be free or audience: ${configUrl}`);
+  }
+  const audience = cfg.three?.audienceCamera;
+  if (cameraMode === "audience" && !audience) {
+    throw new Error(`[ViewerConfigLoader] three.audienceCamera is required for audience initialCameraMode: ${configUrl}`);
+  }
+  if (audience != null) {
+    if (!Array.isArray(audience.positionM) || audience.positionM.length !== 3 || audience.positionM.some((value) => !Number.isFinite(value))) {
+      throw new Error(`[ViewerConfigLoader] three.audienceCamera.positionM must contain three finite numbers: ${configUrl}`);
+    }
+    for (const key of ["yawDeg", "pitchDeg", "fovDeg"]) {
+      if (!Number.isFinite(audience[key])) {
+        throw new Error(`[ViewerConfigLoader] three.audienceCamera.${key} must be a finite number: ${configUrl}`);
+      }
+    }
+    if (audience.pitchDeg < -85 || audience.pitchDeg > 85 || audience.fovDeg < 25 || audience.fovDeg > 90) {
+      throw new Error(`[ViewerConfigLoader] three.audienceCamera pitch/FOV is outside the supported range: ${configUrl}`);
+    }
+  }
   if (!cfg.pdu?.pduDefPath) {
     throw new Error(`[ViewerConfigLoader] pdu.pduDefPath is required: ${configUrl}`);
   }

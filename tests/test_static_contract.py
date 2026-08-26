@@ -40,6 +40,8 @@ class StaticViewerContractTest(unittest.TestCase):
             "getDrones()",
             "focusDroneById(",
             "setFollowSelectedEnabled(",
+            "setAudienceCameraEnabled(",
+            "getAudienceCameraState()",
             "setNightMode(",
             "getNightMode()",
             "setDroneLedStates(states",
@@ -105,6 +107,26 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("m.color.set(this.bodyColor)", drone)
         self.assertIn("bodyColor: droneAppearance.bodyColor ?? null", app)
         self.assertIn("three.droneAppearance.bodyColor must be a #RRGGBB color", viewer)
+
+    def test_audience_camera_is_optional_and_keeps_free_camera_available(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/viewer-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        three = schema["properties"]["three"]["properties"]
+        self.assertEqual(three["initialCameraMode"]["enum"], ["free", "audience"])
+        self.assertEqual(
+            three["audienceCamera"]["required"],
+            ["positionM", "yawDeg", "pitchDeg", "fovDeg"],
+        )
+        app = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        camera = (ROOT / "src/audience_camera.js").read_text(encoding="utf-8")
+        self.assertIn("orbitCameraSnapshot", app)
+        self.assertIn("else orbitCam.update(dt)", app)
+        self.assertIn('this.keys.has("arrowup")', camera)
+        self.assertIn('this.keys.has("u")', camera)
+        self.assertIn("this.fovDeg = clamp", camera)
 
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
