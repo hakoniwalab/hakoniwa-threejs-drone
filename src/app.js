@@ -147,6 +147,20 @@ export function setAudienceCameraEnabled(enabled) {
 export function getAudienceCameraState() {
   return audienceCam?.getState() ?? null;
 }
+export function getCameraHeadingState() {
+  if (!orbitCam?.camera) return null;
+  const directionThree = new THREE.Vector3();
+  orbitCam.camera.getWorldDirection(directionThree);
+  const east = directionThree.x;
+  const north = -directionThree.z;
+  const up = directionThree.y;
+  const horizontal = Math.hypot(east, north);
+  return {
+    mode: audienceCam?.enabled ? "audience" : "free",
+    yawDeg: Math.atan2(north, east) * 180 / Math.PI,
+    pitchDeg: Math.atan2(up, horizontal) * 180 / Math.PI,
+  };
+}
 export function setAudienceCameraMovementInput(input = {}) {
   if (!audienceCam) return false;
   audienceCam.setMovementInput(input);
