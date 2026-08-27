@@ -240,9 +240,44 @@ const NIGHT_LIGHTING = {
   ambientIntensity: 0.18,
   exposure: 0.72,
 };
+let nightLightingOverrides = {};
+
+function finiteLightingValue(value, key, minimum, maximum) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < minimum || number > maximum) {
+    throw new TypeError(`[HakoniwaViewer] ${key} must be within [${minimum}, ${maximum}].`);
+  }
+  return number;
+}
+
+export function setNightLighting(options = {}) {
+  const next = { ...nightLightingOverrides };
+  for (const [key, minimum, maximum] of [
+    ["ambientIntensity", 0, 4],
+    ["directionalIntensity", 0, 4],
+    ["hemisphereIntensity", 0, 4],
+    ["exposure", 0.1, 4],
+  ]) {
+    if (options[key] != null) {
+      next[key] = finiteLightingValue(options[key], key, minimum, maximum);
+    }
+  }
+  nightLightingOverrides = next;
+  if (nightMode) applyLighting(true);
+  return getNightLighting();
+}
+
+export function getNightLighting() {
+  return {
+    ambientIntensity: nightLightingOverrides.ambientIntensity ?? NIGHT_LIGHTING.ambientIntensity,
+    directionalIntensity: nightLightingOverrides.directionalIntensity ?? NIGHT_LIGHTING.directionalIntensity,
+    hemisphereIntensity: nightLightingOverrides.hemisphereIntensity ?? NIGHT_LIGHTING.hemisphereIntensity,
+    exposure: nightLightingOverrides.exposure ?? NIGHT_LIGHTING.exposure,
+  };
+}
 
 function applyLighting(mode) {
-  const lighting = mode ? NIGHT_LIGHTING : DAY_LIGHTING;
+  const lighting = mode ? { ...NIGHT_LIGHTING, ...nightLightingOverrides } : DAY_LIGHTING;
   if (runtimeOptions.transparentBackground) {
     scene.background = null;
     renderer.setClearColor(0x000000, 0.0);

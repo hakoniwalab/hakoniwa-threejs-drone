@@ -48,6 +48,8 @@ class StaticViewerContractTest(unittest.TestCase):
             "setAudienceCameraPose(pose",
             "setNightMode(",
             "getNightMode()",
+            "setNightLighting(options",
+            "getNightLighting()",
             "setDroneLedStates(states",
             "setDroneLedAppearance(options",
         ):
