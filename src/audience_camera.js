@@ -158,6 +158,26 @@ export class AudienceCamera {
     this.movementInput = normalized;
   }
 
+  setPose(pose = {}) {
+    if (pose.positionM != null) {
+      if (!Array.isArray(pose.positionM) || pose.positionM.length !== 3
+        || pose.positionM.some((value) => !Number.isFinite(Number(value)))) {
+        throw new TypeError("[AudienceCamera] positionM must contain three finite numbers.");
+      }
+      this.positionM = pose.positionM.map(Number);
+    }
+    for (const key of ["yawDeg", "pitchDeg", "fovDeg"]) {
+      if (pose[key] != null && !Number.isFinite(Number(pose[key]))) {
+        throw new TypeError(`[AudienceCamera] ${key} must be a finite number.`);
+      }
+    }
+    if (pose.yawDeg != null) this.yawDeg = Number(pose.yawDeg);
+    if (pose.pitchDeg != null) this.pitchDeg = clamp(Number(pose.pitchDeg), -85, 85);
+    if (pose.fovDeg != null) this.fovDeg = clamp(Number(pose.fovDeg), 25, 90);
+    if (this.enabled) this.applyPose();
+    return this.getState();
+  }
+
   update(dt) {
     if (!this.enabled) return;
     const yawRad = this.yawDeg * DEG2RAD;

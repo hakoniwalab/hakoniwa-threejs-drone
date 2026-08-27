@@ -31,6 +31,7 @@ let ledAppearanceIntensity = 1.0;
 const runtimeOptions = {
   enableAttachedCameras: true,
   enableMainCameraMouseControl: true,
+  transparentBackground: false,
 };
 const keyState = {};              // キーボード状態
 
@@ -92,6 +93,10 @@ export function setViewerRuntimeOptions(options = {}) {
   if (typeof options.enableMainCameraMouseControl === "boolean") {
     runtimeOptions.enableMainCameraMouseControl = options.enableMainCameraMouseControl;
   }
+  if (typeof options.transparentBackground === "boolean") {
+    runtimeOptions.transparentBackground = options.transparentBackground;
+    applyLighting(nightMode);
+  }
   if (orbitCam && !audienceCam?.enabled) {
     orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
   }
@@ -134,8 +139,12 @@ export function setAudienceCameraMovementInput(input = {}) {
   audienceCam.setMovementInput(input);
   return true;
 }
+export function setAudienceCameraPose(pose = {}) {
+  if (!audienceCam) return null;
+  return audienceCam.setPose(pose);
+}
 // renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.toneMappingExposure = 1.25;
@@ -221,8 +230,17 @@ const NIGHT_LIGHTING = {
 
 function applyLighting(mode) {
   const lighting = mode ? NIGHT_LIGHTING : DAY_LIGHTING;
-  scene.background.setHex(lighting.background);
-  renderer.setClearColor(lighting.background, 1.0);
+  if (runtimeOptions.transparentBackground) {
+    scene.background = null;
+    renderer.setClearColor(0x000000, 0.0);
+  } else {
+    if (!(scene.background instanceof THREE.Color)) {
+      scene.background = new THREE.Color(lighting.background);
+    } else {
+      scene.background.setHex(lighting.background);
+    }
+    renderer.setClearColor(lighting.background, 1.0);
+  }
   hemi.color.setHex(lighting.hemisphereSky);
   hemi.groundColor.setHex(lighting.hemisphereGround);
   hemi.intensity = lighting.hemisphereIntensity;
@@ -231,7 +249,7 @@ function applyLighting(mode) {
   ambient.color.setHex(lighting.ambientColor);
   ambient.intensity = lighting.ambientIntensity;
   renderer.toneMappingExposure = lighting.exposure;
-  starField.visible = mode;
+  starField.visible = mode && !runtimeOptions.transparentBackground;
 }
 
 function createLedGlowTexture() {

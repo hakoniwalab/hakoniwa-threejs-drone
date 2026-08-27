@@ -26,6 +26,10 @@
           "type": "string",
           "minLength": 1
         },
+        "transparentBackground": {
+          "type": "boolean",
+          "default": false
+        },
         "droneAppearance": {
           "type": "object",
           "additionalProperties": false,
@@ -54,7 +58,8 @@
             },
             "yawDeg": { "type": "number" },
             "pitchDeg": { "type": "number", "minimum": -85, "maximum": 85 },
-            "fovDeg": { "type": "number", "minimum": 25, "maximum": 90 }
+            "fovDeg": { "type": "number", "minimum": 25, "maximum": 90 },
+            "moveSpeedMps": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
           }
         }
       }

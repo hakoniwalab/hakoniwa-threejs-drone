@@ -43,6 +43,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "setAudienceCameraEnabled(",
             "getAudienceCameraState()",
             "setAudienceCameraMovementInput(input",
+            "setAudienceCameraPose(pose",
             "setNightMode(",
             "getNightMode()",
             "setDroneLedStates(states",
@@ -123,6 +124,7 @@ class StaticViewerContractTest(unittest.TestCase):
         )
         app = (ROOT / "src/app.js").read_text(encoding="utf-8")
         camera = (ROOT / "src/audience_camera.js").read_text(encoding="utf-8")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         self.assertIn("orbitCameraSnapshot", app)
         self.assertIn("else orbitCam.update(dt)", app)
         self.assertIn('this.keys.has("arrowup")', camera)
@@ -133,7 +135,12 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn('this.keys.has("u")', camera)
         self.assertIn("this.movementInput.forward", camera)
         self.assertIn("setMovementInput(input", camera)
+        self.assertIn("setPose(pose", camera)
         self.assertIn("this.fovDeg = clamp", camera)
+        self.assertEqual(three["transparentBackground"]["default"], False)
+        self.assertIn("moveSpeedMps", three["audienceCamera"]["properties"])
+        self.assertIn("transparentBackground: this.viewerConfig", viewer)
+        self.assertIn("renderer.setClearColor(0x000000, 0.0)", app)
 
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

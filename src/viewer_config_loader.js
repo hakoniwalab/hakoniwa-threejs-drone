@@ -109,6 +109,11 @@ function validateViewerConfigShape(cfg, configUrl) {
     if (audience.pitchDeg < -85 || audience.pitchDeg > 85 || audience.fovDeg < 25 || audience.fovDeg > 90) {
       throw new Error(`[ViewerConfigLoader] three.audienceCamera pitch/FOV is outside the supported range: ${configUrl}`);
     }
+    if (audience.moveSpeedMps != null
+      && (!Number.isFinite(audience.moveSpeedMps)
+        || audience.moveSpeedMps <= 0 || audience.moveSpeedMps > 100)) {
+      throw new Error(`[ViewerConfigLoader] three.audienceCamera.moveSpeedMps must be within (0, 100]: ${configUrl}`);
+    }
   }
   if (!cfg.pdu?.pduDefPath) {
     throw new Error(`[ViewerConfigLoader] pdu.pduDefPath is required: ${configUrl}`);

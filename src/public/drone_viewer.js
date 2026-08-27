@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, setAudienceCameraMovementInput, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -33,6 +33,10 @@ function validateViewerConfig(config) {
   if (cameraMode !== "free" && cameraMode !== "audience") {
     throw new Error("[DroneViewer] three.initialCameraMode must be free or audience.");
   }
+  if (config.three?.transparentBackground != null
+    && typeof config.three.transparentBackground !== "boolean") {
+    throw new Error("[DroneViewer] three.transparentBackground must be boolean.");
+  }
   const audience = config.three?.audienceCamera;
   if (cameraMode === "audience" && !audience) {
     throw new Error("[DroneViewer] three.audienceCamera is required for audience initialCameraMode.");
@@ -49,6 +53,11 @@ function validateViewerConfig(config) {
     }
     if (audience.fovDeg < 25 || audience.fovDeg > 90) {
       throw new Error("[DroneViewer] three.audienceCamera.fovDeg must be between 25 and 90.");
+    }
+    if (audience.moveSpeedMps != null
+      && (!Number.isFinite(audience.moveSpeedMps)
+        || audience.moveSpeedMps <= 0 || audience.moveSpeedMps > 100)) {
+      throw new Error("[DroneViewer] three.audienceCamera.moveSpeedMps must be within (0, 100].");
     }
   }
   const mode = config.stateInput?.mode;
@@ -133,6 +142,7 @@ export class DroneViewer {
     setViewerRuntimeOptions({
       enableAttachedCameras: this.viewerConfig?.ui?.enableAttachedCameras,
       enableMainCameraMouseControl: this.viewerConfig?.ui?.enableMainCameraMouseControl,
+      transparentBackground: this.viewerConfig?.three?.transparentBackground,
     });
     const fleetOptions = this.viewerConfig?.stateInput?.fleets ?? {};
     await main(resolvedSceneConfigPath, {
@@ -284,6 +294,10 @@ export class DroneViewer {
 
   setAudienceCameraMovementInput(input = {}) {
     return setAudienceCameraMovementInput(input);
+  }
+
+  setAudienceCameraPose(pose = {}) {
+    return setAudienceCameraPose(pose);
   }
 
   setNightMode(enabled) {
