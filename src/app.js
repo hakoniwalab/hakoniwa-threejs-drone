@@ -28,6 +28,7 @@ let nightMode = false;
 let ledAnimationTimeSec = 0;
 let ledAppearanceScale = 1.0;
 let ledAppearanceIntensity = 1.0;
+let ledSpatialDepthCue = false;
 const runtimeOptions = {
   enableAttachedCameras: true,
   enableMainCameraMouseControl: true,
@@ -271,6 +272,8 @@ function createLedGlowTexture() {
 }
 
 const ledGlowTexture = createLedGlowTexture();
+const ledBulbGeometry = new THREE.SphereGeometry(0.09, 12, 8);
+const ledWorldPosition = new THREE.Vector3();
 
 function createLedSprite(name, scale, opacity) {
   const material = new THREE.SpriteMaterial({
@@ -290,6 +293,20 @@ function createLedSprite(name, scale, opacity) {
   return sprite;
 }
 
+function createLedBulb(name) {
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x5ee9ff,
+    transparent: true,
+    opacity: 1.0,
+    toneMapped: false,
+  });
+  const bulb = new THREE.Mesh(ledBulbGeometry, material);
+  bulb.name = name;
+  bulb.visible = false;
+  bulb.renderOrder = 21;
+  return bulb;
+}
+
 function attachShowLed(drone, index) {
   if (!drone?.root?.object3d) return;
   const name = drone.droneId ?? `Drone-${index + 1}`;
@@ -301,8 +318,10 @@ function attachShowLed(drone, index) {
   led.userData.showLedIndex = index;
   led.userData.core = createLedSprite(`${name}_show_led_core`, 0.34, 1.0);
   led.userData.halo = createLedSprite(`${name}_show_led_halo`, 1.55, 0.7);
+  led.userData.bulb = createLedBulb(`${name}_show_led_bulb`);
   led.add(led.userData.halo);
   led.add(led.userData.core);
+  led.add(led.userData.bulb);
   drone.root.object3d.add(led);
   drone.showLed = led;
 }
@@ -325,10 +344,12 @@ export function setDroneLedStates(states = []) {
     const led = byDroneId.get(droneId)?.showLed;
     const core = led?.userData?.core;
     const halo = led?.userData?.halo;
-    if (!core?.material || !halo?.material) continue;
+    const bulb = led?.userData?.bulb;
+    if (!core?.material || !halo?.material || !bulb?.material) continue;
     const color = new THREE.Color().setStyle(`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`);
     core.material.color.copy(color);
     halo.material.color.copy(color);
+    bulb.material.color.copy(color);
     led.userData.showLedBrightness = brightness;
     applied += 1;
   }
@@ -342,9 +363,17 @@ export function setDroneLedAppearance(options = {}) {
     || !Number.isFinite(intensity) || intensity <= 0 || intensity > 4) {
     throw new TypeError("[Hakoniwa] LED appearance requires scale and intensity within (0, 4].");
   }
+  if (options.spatialDepthCue != null && typeof options.spatialDepthCue !== "boolean") {
+    throw new TypeError("[Hakoniwa] LED spatialDepthCue must be boolean.");
+  }
   ledAppearanceScale = scale;
   ledAppearanceIntensity = intensity;
-  return { scale: ledAppearanceScale, intensity: ledAppearanceIntensity };
+  ledSpatialDepthCue = options.spatialDepthCue === true;
+  return {
+    scale: ledAppearanceScale,
+    intensity: ledAppearanceIntensity,
+    spatialDepthCue: ledSpatialDepthCue,
+  };
 }
 
 function updateShowLeds(dt) {
@@ -353,11 +382,13 @@ function updateShowLeds(dt) {
     const led = drones[index]?.showLed;
     const core = led?.userData?.core;
     const halo = led?.userData?.halo;
-    if (!core?.material || !halo?.material) continue;
+    const bulb = led?.userData?.bulb;
+    if (!core?.material || !halo?.material || !bulb?.material) continue;
     const brightness = Number.isFinite(led.userData.showLedBrightness)
       ? THREE.MathUtils.clamp(led.userData.showLedBrightness, 0, 1)
       : 1.0;
     led.visible = brightness > 0;
+    bulb.visible = ledSpatialDepthCue && brightness > 0;
 
     // A roughly 4.5-second shared breathing cycle remains comfortable to
     // watch while preserving the silhouette of the complete formation.
@@ -374,12 +405,32 @@ function updateShowLeds(dt) {
       0,
       1,
     );
+    bulb.material.opacity = THREE.MathUtils.clamp(
+      brightness * ledAppearanceIntensity,
+      0,
+      1,
+    );
+    const cameraDistanceM = orbitCam?.camera
+      ? orbitCam.camera.position.distanceTo(led.getWorldPosition(ledWorldPosition))
+      : 20.0;
+    const farBlend = ledSpatialDepthCue
+      ? THREE.MathUtils.smoothstep(cameraDistanceM, 3.0, 20.0)
+      : 1.0;
     core.scale.setScalar(
-      (nightMode ? 0.46 : 0.28) * (0.96 + 0.07 * pulse) * ledAppearanceScale,
+      THREE.MathUtils.lerp(
+        0.16,
+        nightMode ? 0.46 : 0.28,
+        farBlend,
+      ) * (0.96 + 0.07 * pulse) * ledAppearanceScale,
     );
     halo.scale.setScalar(
-      (nightMode ? 1.65 : 0.72) * (0.88 + 0.18 * pulse) * ledAppearanceScale,
+      THREE.MathUtils.lerp(
+        0.34,
+        nightMode ? 1.65 : 0.72,
+        farBlend,
+      ) * (0.88 + 0.18 * pulse) * ledAppearanceScale,
     );
+    bulb.scale.setScalar(ledAppearanceScale);
   }
 }
 

@@ -86,6 +86,9 @@ class StaticViewerContractTest(unittest.TestCase):
             "shared breathing cycle",
             "ledAppearanceScale",
             "ledAppearanceIntensity",
+            "ledSpatialDepthCue",
+            "createLedBulb",
+            "cameraDistanceM",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
