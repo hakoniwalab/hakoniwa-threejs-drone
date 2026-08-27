@@ -125,6 +125,10 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("orbitCameraSnapshot", app)
         self.assertIn("else orbitCam.update(dt)", app)
         self.assertIn('this.keys.has("arrowup")', camera)
+        self.assertIn('event.pointerType === "touch"', camera)
+        self.assertIn('this.touchPointers.size === 1', camera)
+        self.assertIn('this._touchDistance()', camera)
+        self.assertIn('domElement.style.touchAction = "none"', camera)
         self.assertIn('this.keys.has("u")', camera)
         self.assertIn("this.fovDeg = clamp", camera)
 

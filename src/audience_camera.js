@@ -31,6 +31,8 @@ export class AudienceCamera {
     this.keys = new Set();
     this.dragButton = null;
     this.lastPointer = null;
+    this.touchPointers = new Map();
+    this.lastPinchDistance = null;
 
     this._onKeyDown = (event) => {
       if (!this.enabled || isEditableTarget(event.target)) return;
@@ -41,6 +43,14 @@ export class AudienceCamera {
     };
     this._onKeyUp = (event) => this.keys.delete(event.key.toLowerCase());
     this._onPointerDown = (event) => {
+      if (this.enabled && event.pointerType === "touch") {
+        event.preventDefault();
+        this.touchPointers.set(event.pointerId, [event.clientX, event.clientY]);
+        this.lastPointer = [event.clientX, event.clientY];
+        this.lastPinchDistance = this._touchDistance();
+        this.domElement.setPointerCapture?.(event.pointerId);
+        return;
+      }
       if (!this.enabled || (event.button !== 0 && event.button !== 2)) return;
       event.preventDefault();
       this.dragButton = event.button;
@@ -48,6 +58,34 @@ export class AudienceCamera {
       this.domElement.setPointerCapture?.(event.pointerId);
     };
     this._onPointerMove = (event) => {
+      if (this.enabled && event.pointerType === "touch" && this.touchPointers.has(event.pointerId)) {
+        event.preventDefault();
+        const previous = this.touchPointers.get(event.pointerId);
+        this.touchPointers.set(event.pointerId, [event.clientX, event.clientY]);
+        if (this.touchPointers.size === 1) {
+          const dx = event.clientX - previous[0];
+          const dy = event.clientY - previous[1];
+          this.yawDeg -= dx * this.lookSensitivityDegPerPixel;
+          this.pitchDeg = clamp(
+            this.pitchDeg - dy * this.lookSensitivityDegPerPixel,
+            -85,
+            85,
+          );
+          this.lastPointer = [event.clientX, event.clientY];
+        } else {
+          const distance = this._touchDistance();
+          if (distance != null && this.lastPinchDistance != null) {
+            this.fovDeg = clamp(
+              this.fovDeg - (distance - this.lastPinchDistance) * this.fovSensitivityDegPerPixel,
+              25,
+              90,
+            );
+          }
+          this.lastPinchDistance = distance;
+        }
+        this.applyPose();
+        return;
+      }
       if (!this.enabled || this.dragButton == null || !this.lastPointer) return;
       const dx = event.clientX - this.lastPointer[0];
       const dy = event.clientY - this.lastPointer[1];
@@ -57,6 +95,14 @@ export class AudienceCamera {
       this.applyPose();
     };
     this._onPointerUp = (event) => {
+      if (event.pointerType === "touch" && this.touchPointers.has(event.pointerId)) {
+        this.touchPointers.delete(event.pointerId);
+        const remaining = this.touchPointers.values().next().value;
+        this.lastPointer = remaining ? [...remaining] : null;
+        this.lastPinchDistance = this._touchDistance();
+        this.domElement.releasePointerCapture?.(event.pointerId);
+        return;
+      }
       if (event.button !== this.dragButton) return;
       this.dragButton = null;
       this.lastPointer = null;
@@ -81,6 +127,13 @@ export class AudienceCamera {
     domElement.addEventListener("pointercancel", this._onPointerUp);
     domElement.addEventListener("wheel", this._onWheel, { passive: false });
     domElement.addEventListener("contextmenu", this._onContextMenu);
+    domElement.style.touchAction = "none";
+  }
+
+  _touchDistance() {
+    if (this.touchPointers.size < 2) return null;
+    const [first, second] = [...this.touchPointers.values()];
+    return Math.hypot(second[0] - first[0], second[1] - first[1]);
   }
 
   setEnabled(enabled) {
@@ -88,6 +141,8 @@ export class AudienceCamera {
     this.keys.clear();
     this.dragButton = null;
     this.lastPointer = null;
+    this.touchPointers.clear();
+    this.lastPinchDistance = null;
     if (this.enabled) this.applyPose();
   }
 
