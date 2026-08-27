@@ -38,6 +38,8 @@ class StaticViewerContractTest(unittest.TestCase):
             "withPdu(callback)",
             "async initDronePdu(",
             "getDrones()",
+            "addSceneDecoration(object3d)",
+            "removeSceneDecoration(object3d)",
             "focusDroneById(",
             "setFollowSelectedEnabled(",
             "setAudienceCameraEnabled(",

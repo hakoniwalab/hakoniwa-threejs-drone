@@ -84,6 +84,18 @@ function expandDroneInstances(sceneDrones, {
 export function getDrones() {
   return drones;
 }
+export function addSceneDecoration(object3d) {
+  if (!object3d?.isObject3D) {
+    throw new TypeError("[Hakoniwa] scene decoration must be a THREE.Object3D.");
+  }
+  scene.add(object3d);
+  return object3d;
+}
+export function removeSceneDecoration(object3d) {
+  if (!object3d?.isObject3D) return false;
+  scene.remove(object3d);
+  return true;
+}
 export function setBeforeDronesUpdateHook(hookFn) {
   beforeDronesUpdateHook = typeof hookFn === "function" ? hookFn : null;
 }
