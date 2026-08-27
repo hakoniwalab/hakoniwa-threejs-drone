@@ -29,6 +29,7 @@ export class AudienceCamera {
     this.lookSensitivityDegPerPixel = Number(options.lookSensitivityDegPerPixel ?? 0.15);
     this.fovSensitivityDegPerPixel = Number(options.fovSensitivityDegPerPixel ?? 0.02);
     this.keys = new Set();
+    this.movementInput = { forward: 0, right: 0, up: 0, fast: false };
     this.dragButton = null;
     this.lastPointer = null;
     this.touchPointers = new Map();
@@ -139,6 +140,7 @@ export class AudienceCamera {
   setEnabled(enabled) {
     this.enabled = !!enabled;
     this.keys.clear();
+    this.setMovementInput();
     this.dragButton = null;
     this.lastPointer = null;
     this.touchPointers.clear();
@@ -146,21 +148,33 @@ export class AudienceCamera {
     if (this.enabled) this.applyPose();
   }
 
+  setMovementInput(input = {}) {
+    const normalized = {};
+    for (const key of ["forward", "right", "up"]) {
+      const value = Number(input[key] ?? 0);
+      normalized[key] = Number.isFinite(value) ? clamp(value, -1, 1) : 0;
+    }
+    normalized.fast = input.fast === true;
+    this.movementInput = normalized;
+  }
+
   update(dt) {
     if (!this.enabled) return;
     const yawRad = this.yawDeg * DEG2RAD;
     const forward = [Math.cos(yawRad), Math.sin(yawRad)];
     const right = [Math.sin(yawRad), -Math.cos(yawRad)];
-    let forwardInput = 0;
-    let rightInput = 0;
+    let forwardInput = this.movementInput.forward;
+    let rightInput = this.movementInput.right;
     if (this.keys.has("arrowup")) forwardInput += 1;
     if (this.keys.has("arrowdown")) forwardInput -= 1;
     if (this.keys.has("arrowright")) rightInput += 1;
     if (this.keys.has("arrowleft")) rightInput -= 1;
-    const verticalInput = Number(this.keys.has("u")) - Number(this.keys.has("d"));
+    const verticalInput = this.movementInput.up + Number(this.keys.has("u")) - Number(this.keys.has("d"));
     if (forwardInput === 0 && rightInput === 0 && verticalInput === 0) return;
     const length = Math.hypot(forwardInput, rightInput, verticalInput) || 1;
-    const speed = this.moveSpeedMps * (this.keys.has("shift") ? this.fastMultiplier : 1);
+    const speed = this.moveSpeedMps * (
+      this.keys.has("shift") || this.movementInput.fast ? this.fastMultiplier : 1
+    );
     const distance = speed * dt / length;
     this.positionM[0] += (forward[0] * forwardInput + right[0] * rightInput) * distance;
     this.positionM[1] += (forward[1] * forwardInput + right[1] * rightInput) * distance;

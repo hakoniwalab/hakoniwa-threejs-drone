@@ -71,6 +71,7 @@ v1.0 では以下を外部仕様にします。
   - 観客視点では矢印キーで前後左右、`U`/`D`で上下、`Shift`併用で高速移動する
   - 左ドラッグでyaw、右ドラッグでpitch、ホイールでFOVを変更する
   - タッチ端末では1本指ドラッグでyaw/pitch、2本指のピンチでFOVを変更する
+  - 組み込みUIは`setAudienceCameraMovementInput()`で前後・左右・上下の連続入力を渡せる
   - `initialCameraMode = "audience"`の場合は必須
 
 ### 3.3 `pdu`

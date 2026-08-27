@@ -1,4 +1,4 @@
-import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, setAudienceCameraMovementInput, setNightMode, getNightMode, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -280,6 +280,10 @@ export class DroneViewer {
 
   getAudienceCameraState() {
     return getAudienceCameraState();
+  }
+
+  setAudienceCameraMovementInput(input = {}) {
+    return setAudienceCameraMovementInput(input);
   }
 
   setNightMode(enabled) {

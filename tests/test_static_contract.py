@@ -42,6 +42,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "setFollowSelectedEnabled(",
             "setAudienceCameraEnabled(",
             "getAudienceCameraState()",
+            "setAudienceCameraMovementInput(input",
             "setNightMode(",
             "getNightMode()",
             "setDroneLedStates(states",
@@ -130,6 +131,8 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn('this._touchDistance()', camera)
         self.assertIn('domElement.style.touchAction = "none"', camera)
         self.assertIn('this.keys.has("u")', camera)
+        self.assertIn("this.movementInput.forward", camera)
+        self.assertIn("setMovementInput(input", camera)
         self.assertIn("this.fovDeg = clamp", camera)
 
     def test_readme_uses_current_operational_contract(self) -> None:

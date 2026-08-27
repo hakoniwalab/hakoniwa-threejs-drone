@@ -129,6 +129,11 @@ export function setAudienceCameraEnabled(enabled) {
 export function getAudienceCameraState() {
   return audienceCam?.getState() ?? null;
 }
+export function setAudienceCameraMovementInput(input = {}) {
+  if (!audienceCam) return false;
+  audienceCam.setMovementInput(input);
+  return true;
+}
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
