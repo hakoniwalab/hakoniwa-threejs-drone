@@ -101,6 +101,11 @@
         "enableMainCameraMouseControl": {
           "type": "boolean",
           "default": true
+        },
+        "attachedCameraPresentation": {
+          "type": "string",
+          "enum": ["overlay", "main"],
+          "default": "overlay"
         }
       }
     },

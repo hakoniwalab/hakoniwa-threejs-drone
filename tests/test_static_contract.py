@@ -56,6 +56,28 @@ class StaticViewerContractTest(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
 
+    def test_fpv_course_is_an_opt_in_environment(self) -> None:
+        environment = (ROOT / "src/environment.js").read_text(encoding="utf-8")
+        course = (ROOT / "src/fpv_course.js").read_text(encoding="utf-8")
+        self.assertIn('envCfg.type === "fpv-course"', environment)
+        self.assertIn("buildFpvCourse(scene, envCfg.model)", environment)
+        self.assertIn('course.kind !== "hakoniwa-fpv-course"', course)
+        self.assertIn("obstacle.type === \"gate\"", course)
+        self.assertIn("obstacle.type === \"pylon\"", course)
+        drone = (ROOT / "src/drone.js").read_text(encoding="utf-8")
+        self.assertIn("root.object3d.scale.setScalar(cfg.scale)", drone)
+
+    def test_attached_camera_can_be_opt_in_main_view(self) -> None:
+        app = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        drone = (ROOT / "src/drone.js").read_text(encoding="utf-8")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn('attachedCameraPresentation: "overlay"', app)
+        self.assertIn('runtimeOptions.attachedCameraPresentation === "main"', app)
+        self.assertIn('e.key === "Tab"', app)
+        self.assertIn('e.code === "KeyF"', app)
+        self.assertIn("getPrimaryAttachedCamera()", drone)
+        self.assertIn("ui.attachedCameraPresentation must be overlay or main", viewer)
+
     def test_javascript_pdu_submodule_is_initialized(self) -> None:
         for relative in (
             "thirdparty/hakoniwa-pdu-javascript/src/PduManager.js",

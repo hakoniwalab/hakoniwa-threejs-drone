@@ -110,6 +110,11 @@ v1.0 では以下を外部仕様にします。
   - 各ドローンの小窓カメラ描画を有効化する
   - 100機体運用時は `false` 推奨
 - `enableMainCameraMouseControl` (`boolean`, 任意, 既定: `true`)
+
+- `attachedCameraPresentation` (`"overlay" | "main"`, 任意, 既定: `"overlay"`)
+  - `overlay`: 従来どおりOrbit cameraをメイン、attached cameraを設定viewportへ表示
+  - `main`: 最初のattached cameraをメイン、Orbit cameraを左上PiPへ表示
+  - `main`では`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示
   - メインカメラ（OrbitControls）のマウス操作を有効化する
 
 補足:

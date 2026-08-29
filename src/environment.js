@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { RenderEntity } from "./render_entity.js";
 import { createBuildingEntitiesFromMjcfXml } from "./mjcf_building.js"; // ← MJCF版ビル群生成
+import { buildFpvCourse } from "./fpv_course.js";
 
 /**
  * 単一 Environment を構築する
@@ -17,6 +18,9 @@ import { createBuildingEntitiesFromMjcfXml } from "./mjcf_building.js"; // ← M
  * @returns {Promise<RenderEntity>}
  */
 export async function buildEnvironment(scene, loader, envCfg) {
+  if (envCfg.type === "fpv-course") {
+    return buildFpvCourse(scene, envCfg.model);
+  }
   const ent = new RenderEntity(envCfg.name);
   const modelPath = envCfg.model;
   const lower = modelPath.toLowerCase();

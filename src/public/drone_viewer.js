@@ -101,6 +101,10 @@ function validateViewerConfig(config) {
   if (config.ui?.enableAttachedCameras != null && typeof config.ui.enableAttachedCameras !== "boolean") {
     throw new Error("[DroneViewer] ui.enableAttachedCameras must be boolean.");
   }
+  const attachedPresentation = config.ui?.attachedCameraPresentation ?? "overlay";
+  if (attachedPresentation !== "overlay" && attachedPresentation !== "main") {
+    throw new Error("[DroneViewer] ui.attachedCameraPresentation must be overlay or main.");
+  }
   if (config.ui?.enableMainCameraMouseControl != null && typeof config.ui.enableMainCameraMouseControl !== "boolean") {
     throw new Error("[DroneViewer] ui.enableMainCameraMouseControl must be boolean.");
   }
@@ -143,6 +147,7 @@ export class DroneViewer {
       enableAttachedCameras: this.viewerConfig?.ui?.enableAttachedCameras,
       enableMainCameraMouseControl: this.viewerConfig?.ui?.enableMainCameraMouseControl,
       transparentBackground: this.viewerConfig?.three?.transparentBackground,
+      attachedCameraPresentation: this.viewerConfig?.ui?.attachedCameraPresentation,
     });
     const fleetOptions = this.viewerConfig?.stateInput?.fleets ?? {};
     await main(resolvedSceneConfigPath, {

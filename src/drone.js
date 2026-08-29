@@ -96,6 +96,15 @@ export class Drone {
 
         if (cfg.pos) root.setPositionRos(cfg.pos);
         if (cfg.hpr) root.setRpyRosDeg(cfg.hpr);
+        // Optional visual-only scale. The root pose supplied by PDU remains in
+        // world metres; only the model, rotors, and attached camera offsets are
+        // scaled together. Existing configs omit this and remain at 1.0.
+        if (cfg.scale != null) {
+            if (!Number.isFinite(cfg.scale) || cfg.scale <= 0) {
+                throw new Error(`[Drone] scale must be a positive finite number: ${cfg.scale}`);
+            }
+            root.object3d.scale.setScalar(cfg.scale);
+        }
 
         // rotors
         if (cfg.rotors) {
@@ -390,6 +399,10 @@ export class Drone {
         renderer.setClearColor(prevClear, prevAlpha);
         renderer.setScissorTest(false);
         }
+    }
+
+    getPrimaryAttachedCamera() {
+        return this.viewCameras[0]?.camera ?? null;
     }
 
 

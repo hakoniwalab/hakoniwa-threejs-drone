@@ -12,7 +12,31 @@
   "properties": {
     "version": { "type": "string" },
     "format": { "type": "string", "const": "compact" },
-    "environments": { "type": "array" },
+    "environments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "model"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["fpv-course"] },
+          "pos": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "hpr": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "scale": { "type": "number" }
+        }
+      }
+    },
     "main_camera": { "type": "object" },
     "droneTypesPath": { "type": "string", "minLength": 1 },
     "drones": {
@@ -36,7 +60,8 @@
             "items": { "type": "number" },
             "minItems": 3,
             "maxItems": 3
-          }
+          },
+          "scale": { "type": "number", "exclusiveMinimum": 0 }
         }
       }
     }

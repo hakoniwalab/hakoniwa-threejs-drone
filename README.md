@@ -147,6 +147,7 @@ http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.j
 - `stateInput.fleets.templateDroneIndex`
 - `stateInput.fleets.maxDynamicDrones`
 - `ui.enableAttachedCameras`
+- `ui.attachedCameraPresentation` (`overlay` / `main`)
 - `ui.enableMainCameraMouseControl`
 
 `fleets`では`pdu.wireVersion: "v2"`が必須です。多数機表示では、`ui.enableAttachedCameras: false`を推奨します。
@@ -207,6 +208,22 @@ Recipe側が、Foundation Python、実行バイナリ、設定、WebBridge、HTT
 3. `hakoniwa-pdu-bridge-core`のWebBridgeを起動
 4. 本リポジトリをHTTP配信
 5. Browser ViewerからWebSocketへ接続
+
+## optional FPV course environment
+
+Scene設定のenvironmentへ`"type": "fpv-course"`を明示した場合だけ、`hakoniwa-fpv-drone`がWorld YAMLから生成するプリミティブ・コースJSONを表示できます。
+
+```json
+{
+  "name": "fpv-training-course",
+  "type": "fpv-course",
+  "model": "./fpv-course.json"
+}
+```
+
+機体instanceのoptionalな`scale`では、既存GLB、ローター、搭載カメラを一体で拡大縮小できます。PDUのworld位置はスケールしません。`type`と`scale`を省略した既存scene設定の動作は変わりません。
+
+Viewer設定で`ui.attachedCameraPresentation: "main"`を明示すると、最初の機体attached cameraを全面表示し、従来のOrbit cameraを左上PiPへ表示します。`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示にできます。既定値は従来互換の`overlay`です。
 
 ## UI
 

@@ -33,7 +33,10 @@ const runtimeOptions = {
   enableAttachedCameras: true,
   enableMainCameraMouseControl: true,
   transparentBackground: false,
+  attachedCameraPresentation: "overlay",
 };
+let attachedCameraSwapped = false;
+let attachedCameraPipVisible = true;
 const keyState = {};              // キーボード状態
 
 function deepClone(obj) {
@@ -109,6 +112,14 @@ export function setViewerRuntimeOptions(options = {}) {
   if (typeof options.transparentBackground === "boolean") {
     runtimeOptions.transparentBackground = options.transparentBackground;
     applyLighting(nightMode);
+  }
+  if (options.attachedCameraPresentation != null) {
+    if (!["overlay", "main"].includes(options.attachedCameraPresentation)) {
+      throw new TypeError("[HakoniwaViewer] attachedCameraPresentation must be overlay or main.");
+    }
+    runtimeOptions.attachedCameraPresentation = options.attachedCameraPresentation;
+    attachedCameraSwapped = false;
+    attachedCameraPipVisible = true;
   }
   if (orbitCam && !audienceCam?.enabled) {
     orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
@@ -644,13 +655,36 @@ function animate() {
     const w = container.clientWidth;
     const h = container.clientHeight;
 
-    // ① メインビュー
+    const attachedCamera = runtimeOptions.enableAttachedCameras
+      ? drones.find((drone) => drone.getPrimaryAttachedCamera())?.getPrimaryAttachedCamera()
+      : null;
+    const fpvMain = runtimeOptions.attachedCameraPresentation === "main"
+      && attachedCamera
+      && !attachedCameraSwapped;
+    const mainCamera = fpvMain ? attachedCamera : orbitCam.camera;
+    mainCamera.aspect = w / h;
+    mainCamera.updateProjectionMatrix();
     renderer.setViewport(0, 0, w, h);
     renderer.setScissorTest(false);
-    renderer.render(scene, orbitCam.camera);
+    renderer.render(scene, mainCamera);
 
-    // ② 小窓たち（AttachCamera 相当）
-    if (runtimeOptions.enableAttachedCameras) {
+    if (runtimeOptions.attachedCameraPresentation === "main" && attachedCamera) {
+      if (attachedCameraPipVisible) {
+        const pipCamera = fpvMain ? orbitCam.camera : attachedCamera;
+        const pipW = Math.max(1, Math.floor(w * 0.30));
+        const pipH = Math.max(1, Math.floor(h * 0.27));
+        const pipX = Math.floor(w * 0.02);
+        const pipY = Math.floor(h * 0.72);
+        pipCamera.aspect = pipW / pipH;
+        pipCamera.updateProjectionMatrix();
+        renderer.setScissorTest(true);
+        renderer.setViewport(pipX, pipY, pipW, pipH);
+        renderer.setScissor(pipX, pipY, pipW, pipH);
+        renderer.clearDepth();
+        renderer.render(scene, pipCamera);
+        renderer.setScissorTest(false);
+      }
+    } else if (runtimeOptions.enableAttachedCameras) {
       for (const d of drones) {
         d.renderAttachedCameras(renderer, scene, w, h);
       }
@@ -672,6 +706,14 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("keydown", (e) => {
+  if (!e.repeat && runtimeOptions.attachedCameraPresentation === "main") {
+    if (e.key === "Tab") {
+      attachedCameraSwapped = !attachedCameraSwapped;
+      e.preventDefault();
+    } else if (e.code === "KeyF") {
+      attachedCameraPipVisible = !attachedCameraPipVisible;
+    }
+  }
   keyState[e.key] = true;
 });
 
