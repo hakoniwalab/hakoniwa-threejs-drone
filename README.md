@@ -1,6 +1,6 @@
 # hakoniwa-threejs-drone
 
-Hakoniwa Droneの状態を、Three.jsを使ってブラウザ上に表示する可視化コンポーネントです。
+Hakoniwa Droneと標準View Model対応車両の状態を、Three.jsを使ってブラウザ上に表示する可視化コンポーネントです。
 
 `viewer_config`により、従来の機体単位入力である`legacy`と、`DroneVisualStateArray`を使う`fleets`を切り替えられます。単体・複数機の表示、動的スポーン、機体選択、追従カメラ、風・ローター故障入力のUIを提供します。
 
@@ -9,9 +9,11 @@ Hakoniwa Droneの状態を、Three.jsを使ってブラウザ上に表示する�
 本リポジトリが担当するもの:
 
 - Three.jsによるドローンと背景モデルの描画
+- `hako_viewer_model`による車体・可動部GLBの描画
 - Viewer設定、scene設定、PDU定義の読み込み
 - WebSocket経由のHakoniwa PDU入力
 - `legacy` / `fleets`状態入力
+- `sensor_msgs/MultiDOFJointState` / `JointState`による車両状態入力
 - ブラウザ側の機体選択、カメラ操作、故障・風入力
 - 他のブラウザUIから利用できる`createDroneViewer()`公開API
 
@@ -43,6 +45,16 @@ WebSocket :8765
         v
 hakoniwa-threejs-drone
 ```
+
+車両表示では、同じWebBridge接続から既存の標準PDUを購読します。
+
+```text
+MJCF -> hakoniwa-mbody-registry -> per-part GLB + hako_viewer_model
+UrbanFleet/vehicle_states       -> 車体pose
+UrbanFleet/joint_states         -> 操舵・車輪joint
+```
+
+Three.jsは物理、Ackermann幾何、MJCF解析を再実装しません。
 
 ## 前提条件
 
@@ -146,11 +158,15 @@ http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.j
 - `stateInput.fleets.dynamicSpawn`
 - `stateInput.fleets.templateDroneIndex`
 - `stateInput.fleets.maxDynamicDrones`
+- `stateInput.vehicles.roleMap`
 - `ui.enableAttachedCameras`
 - `ui.attachedCameraPresentation` (`overlay` / `main`)
 - `ui.enableMainCameraMouseControl`
 
 `fleets`では`pdu.wireVersion: "v2"`が必須です。多数機表示では、`ui.enableAttachedCameras: false`を推奨します。
+
+ドローンを含まない車両専用sceneでは`stateInput.mode: "none"`とし、
+`stateInput.vehicles.roleMap`へ`MultiDOFJointState`と`JointState`の型を指定します。
 
 ## 公開Viewer API
 

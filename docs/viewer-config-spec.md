@@ -9,7 +9,7 @@ v1.0 では以下を外部仕様にします。
 
 1. three シーン定義の場所
 2. PDU 接続情報
-3. 状態入力モード（legacy / fleets）
+3. ドローン状態入力モード（legacy / fleets / none）
 4. UI更新周期（任意）
 5. ドローン本体の外観（任意）
 6. 観客視点カメラ（任意）
@@ -87,7 +87,7 @@ v1.0 では以下を外部仕様にします。
 ### 3.4 `stateInput`
 
 - `mode` (`string`, 必須)
-  - `"legacy"` または `"fleets"`
+  - `"legacy"`、`"fleets"`、またはドローン入力を使わない`"none"`
 
 #### mode = `legacy`
 
@@ -101,6 +101,17 @@ v1.0 では以下を外部仕様にします。
 - `fleets` (`object`, 必須)
   - `roleMap` (`object`, 必須)
     - `visual_state_array` (`string`, 必須): 集約状態配列用 pdutype
+
+#### 車両状態入力（任意）
+
+`stateInput.vehicles.roleMap`を指定すると、ドローンmodeとは独立して車両を更新する。
+
+- `vehicle_states`: `sensor_msgs/MultiDOFJointState`
+- `joint_states`: `sensor_msgs/JointState`
+
+車両専用sceneでは`mode: "none"`を使用する。ドローンと車両を同時表示する
+場合は`legacy`または`fleets`に`vehicles`を併記する。車両入力はWebSocket v2を
+必須とする。
 
 ### 3.5 `ui`（任意）
 
@@ -134,6 +145,7 @@ v1.0 では以下を外部仕様にします。
 3. ドローン数（legacy時の対象機体数）は `pdudef` の robot 定義から自動推定する
 4. role 解決が曖昧（複数候補）または不足する場合は起動エラーとする
 5. `stateInput.mode = "fleets"` の場合、`pdu.wireVersion` は `"v2"` を必須とする
+6. `stateInput.vehicles` を指定した場合も、`pdu.wireVersion` は `"v2"` を必須とする
 
 ## 6. 互換規約（フラグなし）
 

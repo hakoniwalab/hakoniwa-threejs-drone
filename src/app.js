@@ -6,6 +6,7 @@ import { OrbitCamera } from "./orbit_camera.js";
 import { AudienceCamera } from "./audience_camera.js";
 import { buildEnvironments } from './environment.js';
 import { Drone } from "./drone.js";
+import { Vehicle } from "./vehicle.js";
 
 console.log("[Hakoniwa] app.js loaded");
 
@@ -23,6 +24,7 @@ let orbitCam = null;
 let audienceCam = null;
 let orbitCameraSnapshot = null;
 let drones = [];
+let vehicles = [];
 let beforeDronesUpdateHook = null;
 let nightMode = false;
 let ledAnimationTimeSec = 0;
@@ -86,6 +88,9 @@ function expandDroneInstances(sceneDrones, {
 
 export function getDrones() {
   return drones;
+}
+export function getVehicles() {
+  return vehicles;
 }
 export function addSceneDecoration(object3d) {
   if (!object3d?.isObject3D) {
@@ -558,6 +563,11 @@ export async function main(
     drones.push(drone);
   }
 
+  for (const vehicleConfig of (cfg.vehicles ?? [])) {
+    console.log("[Hakoniwa] Creating vehicle:", vehicleConfig.name);
+    vehicles.push(await Vehicle.create(scene, loader, vehicleConfig));
+  }
+
   // Main camera 設定
   if (cfg.main_camera) {
     const mc = cfg.main_camera;
@@ -568,12 +578,11 @@ export async function main(
 
     // 初期位置: Drone のワールド座標 + オフセット
     let targetWorld = new THREE.Vector3(0, 0, 0);
-    if (drones.length > 0) {
-      targetWorld = drones[0].getWorldPosition(tmpVec3.clone());
-    }
+    const firstEntity = drones[0] ?? vehicles[0] ?? null;
+    if (firstEntity) targetWorld = firstEntity.getWorldPosition(tmpVec3.clone());
 
     const camPos = targetWorld.clone().add(offsetThree);
-    const followTarget = (drones.length > 0) ? drones[0] : null;
+    const followTarget = firstEntity;
 
     orbitCam = new OrbitCamera(renderer, {
       fov:  mc.fov  ?? 60,

@@ -38,6 +38,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "withPdu(callback)",
             "async initDronePdu(",
             "getDrones()",
+            "getVehicles()",
             "addSceneDecoration(object3d)",
             "removeSceneDecoration(object3d)",
             "focusDroneById(",
@@ -55,6 +56,38 @@ class StaticViewerContractTest(unittest.TestCase):
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
+
+    def test_vehicle_viewer_uses_standard_view_model_and_state_pdus(self) -> None:
+        scene_schema = json.loads(
+            (ROOT / "config/schema/scene-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("vehicleTypesPath", scene_schema["properties"])
+        self.assertIn("vehicles", scene_schema["properties"])
+        viewer_schema = json.loads(
+            (ROOT / "config/schema/viewer-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        state_input = viewer_schema["properties"]["stateInput"]
+        self.assertIn("none", state_input["properties"]["mode"]["enum"])
+        roles = state_input["properties"]["vehicles"]["properties"]["roleMap"]
+        self.assertEqual(
+            roles["properties"]["vehicle_states"]["const"],
+            "sensor_msgs/MultiDOFJointState",
+        )
+        self.assertEqual(
+            roles["properties"]["joint_states"]["const"],
+            "sensor_msgs/JointState",
+        )
+        vehicle = (ROOT / "src/vehicle.js").read_text(encoding="utf-8")
+        source = (ROOT / "src/state_source/vehicle_state_source.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('model.format !== "hako_viewer_model"', vehicle)
+        self.assertIn("pduToJs_MultiDOFJointState", source)
+        self.assertIn("pduToJs_JointState", source)
 
     def test_fpv_course_is_an_opt_in_environment(self) -> None:
         environment = (ROOT / "src/environment.js").read_text(encoding="utf-8")

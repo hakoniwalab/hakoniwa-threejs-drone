@@ -8,7 +8,8 @@ threejs 表示用の scene config は compact 形式のみを対象とする。
 ## 2. 形式（compact）
 
 - `droneTypesPath` で機体テンプレートファイルを参照
-- `drones[]` はインスタンス情報を定義
+- `vehicleTypesPath` で車両View Modelテンプレートを参照
+- `drones[]` / `vehicles[]` はインスタンス情報を定義
 - ローダーで内部正規化してから利用
 
 ## 3. compact 形式（v1.0）
@@ -38,6 +39,7 @@ threejs 表示用の scene config は compact 形式のみを対象とする。
 3. インスタンス項目は type 定義を上書きする
 4. ローダーは compact を内部正規化して描画処理へ渡す
 5. legacy scene config は受け付けない
+6. sceneはドローン定義、車両定義、またはその両方を持つ
 
 ## 4. 各項目の仕様と役割
 
@@ -96,6 +98,22 @@ drone types ファイル例（`/config/drone_types-quadrotor_base.json`）:
 - `dji` の実モデル配置は `assets/local_models/` を使用する（非コミット運用）。
 - `rotors[].spinDirection` はプロペラ表示アニメーションの回転方向を表す。指定値は
   `cw` または `ccw`。未指定時は従来互換としてローターindexの偶奇で交互に回転する。
+
+### 4.4 `vehicleTypesPath` / vehicle types ファイル
+
+車両typeは、MBody Registryが生成する標準`hako_viewer_model`を参照する。
+
+```json
+{
+  "golf_cart": {
+    "viewModelPath": "/hakoniwa-mbody-registry/bodies/generic_ackermann_golf_cart/generated/view-model.json"
+  }
+}
+```
+
+scene側の`vehicles[]`は`name`と`type`だけを持つ。View Modelはbase、固定部、
+可動部、joint軸、per-part GLBを定義する。車体world poseとjoint値はPDUから
+更新し、sceneやJavaScriptへ物理パラメータを複製しない。
 
 ## 5. 座標系
 

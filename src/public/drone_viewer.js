@@ -1,9 +1,10 @@
-import { main, getDrones, addSceneDecoration, removeSceneDecoration, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, getVehicles, addSceneDecoration, removeSceneDecoration, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
 import { FaultInjectionState } from "../fault_injection/fault_injection_state.js";
 import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
+import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -61,7 +62,7 @@ function validateViewerConfig(config) {
     }
   }
   const mode = config.stateInput?.mode;
-  if (mode !== "legacy" && mode !== "fleets") {
+  if (mode !== "legacy" && mode !== "fleets" && mode !== "none") {
     throw new Error(`[DroneViewer] Invalid stateInput.mode: ${mode}`);
   }
   if (mode === "legacy") {
@@ -92,6 +93,15 @@ function validateViewerConfig(config) {
       }
     }
   }
+  const vehicles = config.stateInput?.vehicles;
+  if (vehicles != null) {
+    if (!vehicles.roleMap?.vehicle_states || !vehicles.roleMap?.joint_states) {
+      throw new Error("[DroneViewer] stateInput.vehicles requires vehicle_states and joint_states roles.");
+    }
+    if (config.pdu?.wireVersion !== "v2") {
+      throw new Error("[DroneViewer] vehicle state input requires pdu.wireVersion=v2.");
+    }
+  }
   if (config.ui?.statePanelIntervalMsec != null) {
     const v = config.ui.statePanelIntervalMsec;
     if (!Number.isInteger(v) || v <= 0) {
@@ -115,6 +125,7 @@ export class DroneViewer {
     this.initialized = false;
     this.viewerConfig = null;
     this.stateSource = null;
+    this.vehicleStateSource = null;
     this.renderManager = null;
     this.faultInjectionState = new FaultInjectionState();
     this.disturbanceWriter = new DisturbanceWriter();
@@ -204,8 +215,16 @@ export class DroneViewer {
     if (!connected) {
       return false;
     }
-    this.stateSource = StateSourceFactory.create(this.viewerConfig);
-    await this.stateSource.initialize({ pduDefPath: resolvedPduDefPath });
+    if (mode !== "none") {
+      this.stateSource = StateSourceFactory.create(this.viewerConfig);
+      await this.stateSource.initialize({ pduDefPath: resolvedPduDefPath });
+    }
+    if (this.viewerConfig?.stateInput?.vehicles) {
+      this.vehicleStateSource = new VehicleStateSource(
+        this.viewerConfig.stateInput.vehicles,
+      );
+      await this.vehicleStateSource.initialize({ pduDefPath: resolvedPduDefPath });
+    }
     return true;
   }
 
@@ -214,6 +233,8 @@ export class DroneViewer {
       await this.stateSource.dispose();
     }
     this.stateSource = null;
+    if (this.vehicleStateSource) await this.vehicleStateSource.dispose();
+    this.vehicleStateSource = null;
     await Hakoniwa.disconnect();
   }
 
@@ -231,6 +252,7 @@ export class DroneViewer {
 
   async initDronePdu() {
     const drones = getDrones();
+    if (drones.length === 0 && !this.stateSource) return;
     if (!this.stateSource) {
       throw new Error("[DroneViewer] stateSource is not initialized. Call connectPdu() first.");
     }
@@ -240,21 +262,29 @@ export class DroneViewer {
   }
 
   async syncDroneStates() {
-    if (!this.stateSource) return;
+    if (!this.stateSource && !this.vehicleStateSource) return;
     if (this.syncInFlight) {
       return this.syncInFlight;
     }
     this.syncInFlight = (async () => {
-      await this.stateSource.update();
-      if (!this.renderManager) return;
-      const statesByDroneId = new Map();
-      for (const drone of getDrones()) {
-        const state = this.stateSource.getState(drone.droneId);
-        if (state) {
-          statesByDroneId.set(String(drone.droneId), state);
+      if (this.stateSource) {
+        await this.stateSource.update();
+        if (this.renderManager) {
+          const statesByDroneId = new Map();
+          for (const drone of getDrones()) {
+            const state = this.stateSource.getState(drone.droneId);
+            if (state) statesByDroneId.set(String(drone.droneId), state);
+          }
+          this.renderManager.applyStates(statesByDroneId);
         }
       }
-      this.renderManager.applyStates(statesByDroneId);
+      if (this.vehicleStateSource) {
+        await this.vehicleStateSource.update();
+        for (const vehicle of getVehicles()) {
+          const state = this.vehicleStateSource.getState(vehicle.vehicleId);
+          if (state) vehicle.applyState(state);
+        }
+      }
     })();
     try {
       return await this.syncInFlight;
@@ -265,6 +295,10 @@ export class DroneViewer {
 
   getDrones() {
     return getDrones();
+  }
+
+  getVehicles() {
+    return getVehicles();
   }
 
   addSceneDecoration(object3d) {

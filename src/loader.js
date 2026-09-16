@@ -31,7 +31,9 @@ function deepMerge(base, override) {
 }
 
 function isCompactSceneConfig(cfg) {
-  return !!cfg && typeof cfg === "object" && !!cfg.droneTypesPath && Array.isArray(cfg.drones);
+  const hasDrones = !!cfg?.droneTypesPath && Array.isArray(cfg?.drones);
+  const hasVehicles = !!cfg?.vehicleTypesPath && Array.isArray(cfg?.vehicles);
+  return !!cfg && typeof cfg === "object" && (hasDrones || hasVehicles);
 }
 
 function resolveUrlFromBase(pathValue, baseUrl) {
@@ -87,31 +89,59 @@ async function loadDroneTypesFromPath(droneTypesPath, baseUrl) {
   };
 }
 
+async function loadVehicleTypesFromPath(vehicleTypesPath, baseUrl) {
+  const resolved = new URL(vehicleTypesPath, baseUrl).toString();
+  const res = await fetch(resolved);
+  if (!res.ok) throw new Error(`Failed to load vehicleTypes: ${resolved}`);
+  return { vehicleTypes: await res.json(), vehicleTypesUrl: resolved };
+}
+
 async function normalizeCompactSceneConfig(cfg, baseUrl) {
   const normalized = deepClone(cfg);
   normalizeEnvironmentModelPaths(normalized, baseUrl);
-  const { droneTypes, droneTypesUrl } = await loadDroneTypesFromPath(normalized.droneTypesPath, baseUrl);
+  if (normalized.droneTypesPath) {
+    const { droneTypes, droneTypesUrl } = await loadDroneTypesFromPath(normalized.droneTypesPath, baseUrl);
+    normalized.drones = (normalized.drones || []).map((instance) => {
+      const typeId = instance.type ?? instance.droneType;
+      if (!typeId || !droneTypes[typeId]) {
+        throw new Error(`Invalid compact scene config: unknown drone type '${typeId}'.`);
+      }
+      const typeDef = deepClone(droneTypes[typeId]);
+      const expanded = deepMerge(typeDef, instance);
+      delete expanded.type;
+      delete expanded.droneType;
+      expanded.resolvedType = typeId;
+      normalizeDroneModelPaths(expanded, droneTypesUrl);
+      return expanded;
+    });
+  } else {
+    normalized.drones = [];
+  }
 
-  normalized.drones = (normalized.drones || []).map((instance) => {
-    const typeId = instance.type ?? instance.droneType;
-    if (!typeId || !droneTypes[typeId]) {
-      throw new Error(`Invalid compact scene config: unknown drone type '${typeId}'.`);
-    }
-    const typeDef = deepClone(droneTypes[typeId]);
-    const expanded = deepMerge(typeDef, instance);
-    delete expanded.type;
-    delete expanded.droneType;
-    expanded.resolvedType = typeId;
-    normalizeDroneModelPaths(expanded, droneTypesUrl);
-    return expanded;
-  });
+  if (normalized.vehicleTypesPath) {
+    const { vehicleTypes, vehicleTypesUrl } = await loadVehicleTypesFromPath(normalized.vehicleTypesPath, baseUrl);
+    normalized.vehicles = (normalized.vehicles || []).map((instance) => {
+      const typeId = instance.type ?? instance.vehicleType;
+      if (!typeId || !vehicleTypes[typeId]) {
+        throw new Error(`Invalid compact scene config: unknown vehicle type '${typeId}'.`);
+      }
+      const expanded = deepMerge(vehicleTypes[typeId], instance);
+      delete expanded.type;
+      delete expanded.vehicleType;
+      expanded.resolvedType = typeId;
+      expanded.viewModelPath = resolveUrlFromBase(expanded.viewModelPath, vehicleTypesUrl);
+      return expanded;
+    });
+  } else {
+    normalized.vehicles = [];
+  }
 
   return normalized;
 }
 
 async function normalizeSceneConfig(cfg, baseUrl) {
   if (!isCompactSceneConfig(cfg)) {
-    throw new Error("Scene config must be compact format (droneTypesPath + drones).");
+    throw new Error("Scene config must contain compact drone or vehicle type definitions.");
   }
   return await normalizeCompactSceneConfig(cfg, baseUrl);
 }

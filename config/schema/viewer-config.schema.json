@@ -120,7 +120,8 @@
           "type": "string",
           "enum": [
             "legacy",
-            "fleets"
+            "fleets",
+            "none"
           ]
         },
         "legacy": {
@@ -184,6 +185,28 @@
               }
             }
           }
+        },
+        "vehicles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["roleMap"],
+          "properties": {
+            "roleMap": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["vehicle_states", "joint_states"],
+              "properties": {
+                "vehicle_states": {
+                  "type": "string",
+                  "const": "sensor_msgs/MultiDOFJointState"
+                },
+                "joint_states": {
+                  "type": "string",
+                  "const": "sensor_msgs/JointState"
+                }
+              }
+            }
+          }
         }
       },
       "allOf": [
@@ -242,6 +265,21 @@
                 "const": "v2"
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stateInput": { "required": ["vehicles"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "pdu": {
+            "required": ["wireVersion"],
+            "properties": { "wireVersion": { "const": "v2" } }
           }
         }
       }
