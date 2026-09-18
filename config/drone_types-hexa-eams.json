@@ -48,6 +48,28 @@
         "pos": [0.458993, -0.265, 0],
         "hpr": [0, 0, 0]
       }
+    ],
+    "cameras": [
+      {
+        "name": "road_monitor_camera",
+        "pos": [0.185, 0, 0.015],
+        "hpr": [0, 50, 0],
+        "fov": 75,
+        "near": 0.1,
+        "far": 2000,
+        "window": {
+          "x": 0.70,
+          "y": 0.70,
+          "width": 0.29,
+          "height": 0.29
+        },
+        "sort": 20,
+        "model": {
+          "model_path": "../assets/models/base-drone-camera.glb",
+          "pos": [0, 0, 0],
+          "hpr": [0, 0, 180]
+        }
+      }
     ]
   }
 }

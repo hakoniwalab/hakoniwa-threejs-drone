@@ -148,6 +148,11 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertTrue(
             all(rotor["model"]["scale"] > 1 for rotor in hexa["rotors"])
         )
+        monitor = hexa["cameras"][0]
+        self.assertEqual(monitor["name"], "road_monitor_camera")
+        self.assertEqual(monitor["hpr"], [0, 50, 0])
+        self.assertGreaterEqual(monitor["window"]["x"], 0.7)
+        self.assertGreaterEqual(monitor["window"]["y"], 0.7)
         viewer = json.loads(
             (ROOT / "config/viewer-config-fleets-hexa-eams.json").read_text(
                 encoding="utf-8"
@@ -157,6 +162,7 @@ class StaticViewerContractTest(unittest.TestCase):
             viewer["stateInput"]["fleets"]["motorChannels"],
             [0, 1, 2, 3, 4, 5],
         )
+        self.assertTrue(viewer["ui"]["enableAttachedCameras"])
         factory = (ROOT / "src/state_source/state_source_factory.js").read_text(
             encoding="utf-8"
         )
