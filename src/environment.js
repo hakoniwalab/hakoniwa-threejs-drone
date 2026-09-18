@@ -4,6 +4,26 @@ import { RenderEntity } from "./render_entity.js";
 import { createBuildingEntitiesFromMjcfXml } from "./mjcf_building.js"; // ← MJCF版ビル群生成
 import { buildFpvCourse } from "./fpv_course.js";
 
+function applyRenderOverride(root, renderCfg) {
+  if (!renderCfg || renderCfg.mode !== "wireframe") return;
+
+  const color = renderCfg.color ?? "#22c55e";
+  const opacity = renderCfg.opacity ?? 0.72;
+  const depthTest = renderCfg.depthTest ?? true;
+  const depthWrite = renderCfg.depthWrite ?? false;
+  root.traverse((obj) => {
+    if (!obj.isMesh) return;
+    obj.material = new THREE.MeshBasicMaterial({
+      color,
+      wireframe: true,
+      transparent: opacity < 1.0,
+      opacity,
+      depthTest,
+      depthWrite,
+    });
+  });
+}
+
 /**
  * 単一 Environment を構築する
  * - Python の EnvironmentEntity 相当
@@ -68,6 +88,7 @@ export async function buildEnvironment(scene, loader, envCfg) {
         }
       }
     });
+    applyRenderOverride(gltfRoot, envCfg.render);
 
     // RenderEntity にぶら下げる
     ent.setAttachment(gltfRoot);

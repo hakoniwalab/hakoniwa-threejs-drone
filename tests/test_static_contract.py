@@ -100,6 +100,23 @@ class StaticViewerContractTest(unittest.TestCase):
         drone = (ROOT / "src/drone.js").read_text(encoding="utf-8")
         self.assertIn("root.object3d.scale.setScalar(cfg.scale)", drone)
 
+    def test_environment_wireframe_render_override_is_supported(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/scene-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        environment = schema["properties"]["environments"]["items"]["properties"]
+        render = environment["render"]
+        self.assertEqual(render["properties"]["mode"]["const"], "wireframe")
+        self.assertEqual(
+            render["properties"]["color"]["pattern"], "^#[0-9A-Fa-f]{6}$"
+        )
+        source = (ROOT / "src/environment.js").read_text(encoding="utf-8")
+        self.assertIn('renderCfg.mode !== "wireframe"', source)
+        self.assertIn("wireframe: true", source)
+        self.assertIn("applyRenderOverride(gltfRoot, envCfg.render)", source)
+
     def test_attached_camera_can_be_opt_in_main_view(self) -> None:
         app = (ROOT / "src/app.js").read_text(encoding="utf-8")
         drone = (ROOT / "src/drone.js").read_text(encoding="utf-8")

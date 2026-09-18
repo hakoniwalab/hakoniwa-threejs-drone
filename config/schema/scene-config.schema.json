@@ -33,7 +33,26 @@
             "minItems": 3,
             "maxItems": 3
           },
-          "scale": { "type": "number" }
+          "scale": { "type": "number" },
+          "render": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode"],
+            "properties": {
+              "mode": { "const": "wireframe" },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$"
+              },
+              "opacity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "depthTest": { "type": "boolean" },
+              "depthWrite": { "type": "boolean" }
+            }
+          }
         }
       }
     },
