@@ -118,6 +118,19 @@ function validateViewerConfigShape(cfg, configUrl) {
   if (!cfg.pdu?.pduDefPath) {
     throw new Error(`[ViewerConfigLoader] pdu.pduDefPath is required: ${configUrl}`);
   }
+  const stateOptions = cfg.stateInput?.[cfg.stateInput?.mode];
+  if (stateOptions?.motorChannels != null) {
+    const channels = stateOptions.motorChannels;
+    if (!Array.isArray(channels) || channels.length === 0
+      || channels.some((value) => !Number.isInteger(value) || value < 0)
+      || new Set(channels).size !== channels.length) {
+      throw new Error(`[ViewerConfigLoader] stateInput motorChannels must contain unique non-negative integers: ${configUrl}`);
+    }
+  }
+  if (stateOptions?.rotorScale != null
+    && (!Number.isFinite(stateOptions.rotorScale) || stateOptions.rotorScale <= 0)) {
+    throw new Error(`[ViewerConfigLoader] stateInput rotorScale must be a positive finite number: ${configUrl}`);
+  }
 }
 
 function normalizeViewerConfigPaths(cfg, configUrl) {

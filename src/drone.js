@@ -77,6 +77,24 @@ export class Drone {
             });
         };
 
+        const applyModelScale = (entity, modelConfig, label) => {
+            const scale = modelConfig?.scale;
+            if (scale == null) return;
+            if (Number.isFinite(scale) && scale > 0) {
+                entity.object3d.scale.setScalar(scale);
+                return;
+            }
+            if (
+                Array.isArray(scale)
+                && scale.length === 3
+                && scale.every((value) => Number.isFinite(value) && value > 0)
+            ) {
+                entity.object3d.scale.set(...scale);
+                return;
+            }
+            throw new Error(`[Drone] ${label}.scale must be a positive number or three positive numbers.`);
+        };
+
         // 本体モデル
         const modelObj = await new Promise((resolve, reject) => {
             this.loader.load(
@@ -92,6 +110,7 @@ export class Drone {
         modelEnt.setAttachment(modelObj);
         modelEnt.setPositionRos(cfg.model.pos);
         modelEnt.setRpyRosDeg(cfg.model.hpr);
+        applyModelScale(modelEnt, cfg.model, "model");
         root.setModel(modelEnt);
 
         if (cfg.pos) root.setPositionRos(cfg.pos);
@@ -118,6 +137,7 @@ export class Drone {
 
             rotorModelEnt.setRpyRosDeg(r.model.hpr);
             rotorModelEnt.setPositionRos(r.model.pos);
+            applyModelScale(rotorModelEnt, r.model, `${r.name}.model`);
             rotorEnt.setModel(rotorModelEnt);
 
             rotorEnt.setPositionRos(r.pos);
@@ -138,6 +158,7 @@ export class Drone {
                 // 見た目のカメラモデル
                 camModelEnt.setPositionRos(c.model.pos);
                 camModelEnt.setRpyRosDeg(c.model.hpr);
+                applyModelScale(camModelEnt, c.model, `${c.name}.model`);
 
                 this.loader.load(c.model.model_path, (gltf) => {
                     camModelEnt.setAttachment(gltf.scene);

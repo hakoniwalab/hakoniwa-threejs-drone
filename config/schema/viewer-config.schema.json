@@ -131,6 +131,16 @@
             "roleMap"
           ],
           "properties": {
+            "motorChannels": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0 }
+            },
+            "rotorScale": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
             "roleMap": {
               "type": "object",
               "additionalProperties": false,
@@ -158,6 +168,16 @@
             "roleMap"
           ],
           "properties": {
+            "motorChannels": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0 }
+            },
+            "rotorScale": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
             "dynamicSpawn": {
               "type": "boolean",
               "default": false

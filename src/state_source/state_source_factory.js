@@ -5,10 +5,18 @@ export class StateSourceFactory {
   static create(config) {
     const mode = config?.stateInput?.mode;
     if (mode === "legacy") {
-      return new LegacyStateSource(config?.stateInput?.legacy?.roleMap);
+      const input = config?.stateInput?.legacy ?? {};
+      return new LegacyStateSource(input.roleMap, {
+        motorChannels: input.motorChannels,
+        rotorScale: input.rotorScale,
+      });
     }
     if (mode === "fleets") {
-      return new FleetStateSource(config?.stateInput?.fleets?.roleMap);
+      const input = config?.stateInput?.fleets ?? {};
+      return new FleetStateSource(input.roleMap, {
+        motorChannels: input.motorChannels,
+        rotorScale: input.rotorScale,
+      });
     }
     throw new Error(`[StateSourceFactory] unsupported mode: ${mode}`);
   }

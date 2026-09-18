@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "format": "compact",
+  "environments": [
+    {
+      "name": "floor",
+      "model": "../assets/models/base-floor.glb",
+      "pos": [0, 0, -0.01],
+      "hpr": [0, 0, 180]
+    }
+  ],
+  "main_camera": {
+    "fov": 90,
+    "near": 0.1,
+    "far": 20000,
+    "initialMode": "fixed",
+    "followDistance": 3.0,
+    "followLerpPos": 8.0,
+    "followLerpTarget": 10.0,
+    "followToggleKey": "c",
+    "position": [-2.0, -2.0, 1.2],
+    "target": "Drone"
+  },
+  "droneTypesPath": "./drone_types-hexa-eams.json",
+  "drones": [
+    {
+      "name": "Drone",
+      "type": "hexa_eams",
+      "pos": [0, 0, 0],
+      "hpr": [0, 0, 0]
+    }
+  ]
+}

@@ -133,6 +133,36 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("skipped an incomplete visual-state packet", source)
         self.assertIn("lastInvalidPacketWarningMsec", source)
 
+    def test_eams_hexa_uses_six_scaled_propellers_and_six_motor_channels(self) -> None:
+        drone_types = json.loads(
+            (ROOT / "config/drone_types-hexa-eams.json").read_text(encoding="utf-8")
+        )
+        hexa = drone_types["hexa_eams"]
+        self.assertTrue((ROOT / "assets/models/eams-hexa-frame.glb").is_file())
+        self.assertEqual(hexa["model"]["hpr"], [0, 0, 0])
+        self.assertEqual(len(hexa["rotors"]), 6)
+        self.assertEqual(
+            [rotor["spinDirection"] for rotor in hexa["rotors"]],
+            ["cw", "ccw", "cw", "ccw", "cw", "ccw"],
+        )
+        self.assertTrue(
+            all(rotor["model"]["scale"] > 1 for rotor in hexa["rotors"])
+        )
+        viewer = json.loads(
+            (ROOT / "config/viewer-config-fleets-hexa-eams.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            viewer["stateInput"]["fleets"]["motorChannels"],
+            [0, 1, 2, 3, 4, 5],
+        )
+        factory = (ROOT / "src/state_source/state_source_factory.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("motorChannels: input.motorChannels", factory)
+        self.assertIn("applyModelScale(rotorModelEnt", (ROOT / "src/drone.js").read_text(encoding="utf-8"))
+
     def test_night_show_preserves_word_readability(self) -> None:
         source = (ROOT / "src/app.js").read_text(encoding="utf-8")
         for marker in (

@@ -23,6 +23,24 @@ function validateViewerConfig(config) {
   if (!config.pdu?.wsUri) {
     throw new Error("[DroneViewer] pdu.wsUri is required.");
   }
+  const stateOptions = config.stateInput?.[config.stateInput?.mode];
+  if (stateOptions?.motorChannels != null) {
+    const channels = stateOptions.motorChannels;
+    if (
+      !Array.isArray(channels)
+      || channels.length === 0
+      || channels.some((value) => !Number.isInteger(value) || value < 0)
+      || new Set(channels).size !== channels.length
+    ) {
+      throw new Error("[DroneViewer] stateInput motorChannels must contain unique non-negative integers.");
+    }
+  }
+  if (
+    stateOptions?.rotorScale != null
+    && (!Number.isFinite(stateOptions.rotorScale) || stateOptions.rotorScale <= 0)
+  ) {
+    throw new Error("[DroneViewer] stateInput rotorScale must be a positive finite number.");
+  }
   const bodyColor = config.three?.droneAppearance?.bodyColor;
   if (
     bodyColor != null
