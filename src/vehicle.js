@@ -60,6 +60,7 @@ export class Vehicle {
     this.parts = new Map();
     this.joints = new Map();
     this.latestPose = null;
+    this.viewCameras = [];
   }
 
   static async create(scene, loader, config) {
@@ -124,6 +125,28 @@ export class Vehicle {
         throw new Error(`[Vehicle] unresolved part hierarchy: ${pending.map((p) => p.name).join(", ")}`);
       }
     }
+    const frontCamera = this.config.frontCamera;
+    if (frontCamera) {
+      const camera = new THREE.PerspectiveCamera(
+        frontCamera.fov ?? 70,
+        1.0,
+        frontCamera.near ?? 0.1,
+        frontCamera.far ?? 1000,
+      );
+      camera.name = `${this.vehicleId}/front-camera`;
+      camera.position.copy(fluVectorToThree(frontCamera.position ?? [1.2, 0, 1.2]));
+      camera.quaternion.copy(fluRpyToThreeQuaternion(frontCamera.rpy ?? [0, 0, 0]));
+      this.root.add(camera);
+      this.viewCameras.push({
+        camera,
+        viewport: frontCamera.window ?? {
+          x: 0.70, y: 0.70, width: 0.28, height: 0.28,
+        },
+        backgroundColor: new THREE.Color(frontCamera.backgroundColor ?? 0x000000),
+        borderColor: new THREE.Color(frontCamera.borderColor ?? 0xffffff),
+        borderWidthPx: frontCamera.borderWidthPx ?? 3,
+      });
+    }
     this.scene.add(this.root);
   }
 
@@ -147,5 +170,43 @@ export class Vehicle {
 
   getWorldPosition(target = new THREE.Vector3()) {
     return this.root.getWorldPosition(target);
+  }
+
+  renderAttachedCameras(renderer, scene, fullWidth, fullHeight) {
+    for (const {
+      viewport, camera, backgroundColor, borderColor, borderWidthPx,
+    } of this.viewCameras) {
+      const vpW = Math.max(1, Math.floor(fullWidth * viewport.width));
+      const vpH = Math.max(1, Math.floor(fullHeight * viewport.height));
+      const vpX = Math.floor(fullWidth * viewport.x);
+      const vpY = Math.floor(fullHeight * viewport.y);
+      camera.aspect = vpW / vpH;
+      camera.updateProjectionMatrix();
+      renderer.setScissorTest(true);
+      renderer.setViewport(vpX, vpY, vpW, vpH);
+      renderer.setScissor(vpX, vpY, vpW, vpH);
+      const previousColor = renderer.getClearColor(new THREE.Color());
+      const previousAlpha = renderer.getClearAlpha();
+      renderer.setClearColor(borderColor, 1.0);
+      renderer.clear(true, false, false);
+      const border = Math.max(0, Math.floor(borderWidthPx));
+      renderer.setViewport(
+        vpX + border, vpY + border,
+        Math.max(1, vpW - border * 2), Math.max(1, vpH - border * 2),
+      );
+      renderer.setScissor(
+        vpX + border, vpY + border,
+        Math.max(1, vpW - border * 2), Math.max(1, vpH - border * 2),
+      );
+      renderer.setClearColor(backgroundColor, 1.0);
+      renderer.clearDepth();
+      renderer.render(scene, camera);
+      renderer.setClearColor(previousColor, previousAlpha);
+      renderer.setScissorTest(false);
+    }
+  }
+
+  getPrimaryAttachedCamera() {
+    return this.viewCameras[0]?.camera ?? null;
   }
 }

@@ -665,7 +665,8 @@ function animate() {
     const h = container.clientHeight;
 
     const attachedCamera = runtimeOptions.enableAttachedCameras
-      ? drones.find((drone) => drone.getPrimaryAttachedCamera())?.getPrimaryAttachedCamera()
+      ? [...drones, ...vehicles]
+        .find((entity) => entity.getPrimaryAttachedCamera())?.getPrimaryAttachedCamera()
       : null;
     const fpvMain = runtimeOptions.attachedCameraPresentation === "main"
       && attachedCamera
@@ -696,6 +697,9 @@ function animate() {
     } else if (runtimeOptions.enableAttachedCameras) {
       for (const d of drones) {
         d.renderAttachedCameras(renderer, scene, w, h);
+      }
+      for (const vehicle of vehicles) {
+        vehicle.renderAttachedCameras(renderer, scene, w, h);
       }
     }
   }

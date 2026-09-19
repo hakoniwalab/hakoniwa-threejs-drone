@@ -128,6 +128,20 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("getPrimaryAttachedCamera()", drone)
         self.assertIn("ui.attachedCameraPresentation must be overlay or main", viewer)
 
+    def test_vehicle_front_camera_uses_the_shared_attached_camera_presentation(self) -> None:
+        app = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        vehicle = (ROOT / "src/vehicle.js").read_text(encoding="utf-8")
+        schema = json.loads(
+            (ROOT / "config/schema/scene-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        vehicle_properties = schema["properties"]["vehicles"]["items"]["properties"]
+        self.assertIn("frontCamera", vehicle_properties)
+        self.assertIn("this.config.frontCamera", vehicle)
+        self.assertIn("renderAttachedCameras", vehicle)
+        self.assertIn("[...drones, ...vehicles]", app)
+
     def test_javascript_pdu_submodule_is_initialized(self) -> None:
         for relative in (
             "thirdparty/hakoniwa-pdu-javascript/src/PduManager.js",
