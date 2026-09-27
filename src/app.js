@@ -39,6 +39,46 @@ const runtimeOptions = {
 };
 let attachedCameraSwapped = false;
 let attachedCameraPipVisible = true;
+// Index into the entities that carry an attached camera (Drones first).
+let attachedCameraIndex = 0;
+let cameraLabelTimer = null;
+
+function cameraEntities() {
+  return [...drones, ...vehicles].filter((entity) => entity.getPrimaryAttachedCamera());
+}
+
+function selectedCameraEntity() {
+  const entities = cameraEntities();
+  return entities.length ? entities[attachedCameraIndex % entities.length] : null;
+}
+
+function entityLabel(entity) {
+  return entity?.droneId ?? entity?.vehicleId ?? "";
+}
+
+// Briefly name the entity whose camera is shown after switching.
+function showCameraLabel(text) {
+  let label = document.getElementById("hakoniwa-camera-label");
+  if (!label) {
+    label = document.createElement("div");
+    label.id = "hakoniwa-camera-label";
+    label.style.cssText = "position:absolute;right:12px;top:12px;padding:6px 10px;"
+      + "background:rgba(0,0,0,0.6);color:#fff;font:14px sans-serif;border-radius:4px;pointer-events:none;z-index:10";
+    container.style.position = container.style.position || "relative";
+    container.appendChild(label);
+  }
+  label.textContent = text;
+  label.hidden = false;
+  clearTimeout(cameraLabelTimer);
+  cameraLabelTimer = setTimeout(() => { label.hidden = true; }, 2000);
+}
+
+function cycleAttachedCamera() {
+  const entities = cameraEntities();
+  if (entities.length === 0) return;
+  attachedCameraIndex = (attachedCameraIndex + 1) % entities.length;
+  showCameraLabel(`主観カメラ: ${entityLabel(entities[attachedCameraIndex])}（V で切替）`);
+}
 const keyState = {};              // キーボード状態
 
 function deepClone(obj) {
@@ -664,10 +704,9 @@ function animate() {
     const w = container.clientWidth;
     const h = container.clientHeight;
 
-    const attachedCamera = runtimeOptions.enableAttachedCameras
-      ? [...drones, ...vehicles]
-        .find((entity) => entity.getPrimaryAttachedCamera())?.getPrimaryAttachedCamera()
-      : null;
+    // One entity owns the subjective (attached) camera at a time; V cycles it.
+    const selectedEntity = runtimeOptions.enableAttachedCameras ? selectedCameraEntity() : null;
+    const attachedCamera = selectedEntity?.getPrimaryAttachedCamera() ?? null;
     const fpvMain = runtimeOptions.attachedCameraPresentation === "main"
       && attachedCamera
       && !attachedCameraSwapped;
@@ -694,13 +733,10 @@ function animate() {
         renderer.render(scene, pipCamera);
         renderer.setScissorTest(false);
       }
-    } else if (runtimeOptions.enableAttachedCameras) {
-      for (const d of drones) {
-        d.renderAttachedCameras(renderer, scene, w, h);
-      }
-      for (const vehicle of vehicles) {
-        vehicle.renderAttachedCameras(renderer, scene, w, h);
-      }
+    } else if (selectedEntity) {
+      // Only the selected entity's windows: several entities may use the same
+      // corner, and drawing them all hid the one the user wants to see.
+      selectedEntity.renderAttachedCameras(renderer, scene, w, h);
     }
   }
 }
@@ -719,6 +755,9 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("keydown", (e) => {
+  if (!e.repeat && e.code === "KeyV" && runtimeOptions.enableAttachedCameras) {
+    cycleAttachedCamera();
+  }
   if (!e.repeat && runtimeOptions.attachedCameraPresentation === "main") {
     if (e.key === "Tab") {
       attachedCameraSwapped = !attachedCameraSwapped;
