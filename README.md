@@ -239,6 +239,8 @@ Scene設定のenvironmentへ`"type": "fpv-course"`を明示した場合だけ、
 
 機体instanceのoptionalな`scale`では、既存GLB、ローター、搭載カメラを一体で拡大縮小できます。PDUのworld位置はスケールしません。`type`と`scale`を省略した既存scene設定の動作は変わりません。
 
+Viewer設定のoptionalな`faultInjection`（`robotName`、`rotorCount`、`pduName`は既定`disturb`）で、ローター故障・風の送信先機体とローター数を指定します。地図などに組み込む画面は`mountFaultPanel(container, viewer)`でローター数分のスライダーを持つパネルを表示できます。省略時は従来どおり`Drone`・4ローターです。
+
 Viewer設定で`ui.attachedCameraPresentation: "main"`を明示すると、最初の機体attached cameraを全面表示し、従来のOrbit cameraを左上PiPへ表示します。`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示にできます。既定値は従来互換の`overlay`です。
 
 ## UI
