@@ -290,6 +290,10 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("export function mountFaultPanel(container, viewer)", panel)
         self.assertIn("length: fault.rotorCount", panel)
         self.assertIn("viewer.sendRotorFaultScales(scales)", panel)
+        # The wind is set on a compass pointing where it blows, as a map bearing.
+        self.assertIn("function windCompass(onRelease)", panel)
+        self.assertIn("return (360 - headingDeg) % 360;", panel)
+        self.assertIn("rotate(${-90 - headingDeg}deg)", panel)
         index = (ROOT / "src/index.js").read_text(encoding="utf-8")
         self.assertIn("mountFaultPanel", index)
 
