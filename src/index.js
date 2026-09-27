@@ -5,3 +5,4 @@ export { loadViewerConfig, DEFAULT_VIEWER_CONFIG_PATH } from './viewer_config_lo
 export { StateSourceFactory } from './state_source/state_source_factory.js';
 export { FaultInjectionState } from './fault_injection/fault_injection_state.js';
 export { DisturbanceWriter } from './fault_injection/disturbance_writer.js';
+export { mountFaultPanel } from './fault_injection/fault_panel.js';

@@ -10,6 +10,9 @@ function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+// The Drone service decodes at most this many rotor fault scales.
+const MAX_FAULT_ROTORS = 16;
+
 function validateViewerConfig(config) {
   if (config.version !== "1.0") {
     throw new Error(`[DroneViewer] Unsupported viewer config version: ${config.version}`);
@@ -77,6 +80,18 @@ function validateViewerConfig(config) {
       && (!Number.isFinite(audience.moveSpeedMps)
         || audience.moveSpeedMps <= 0 || audience.moveSpeedMps > 100)) {
       throw new Error("[DroneViewer] three.audienceCamera.moveSpeedMps must be within (0, 100].");
+    }
+  }
+  const fault = config.faultInjection;
+  if (fault != null) {
+    if (typeof fault.robotName !== "string" || fault.robotName.length === 0) {
+      throw new Error("[DroneViewer] faultInjection.robotName is required.");
+    }
+    if (fault.pduName != null && (typeof fault.pduName !== "string" || fault.pduName.length === 0)) {
+      throw new Error("[DroneViewer] faultInjection.pduName must be a non-empty string.");
+    }
+    if (!Number.isInteger(fault.rotorCount) || fault.rotorCount < 1 || fault.rotorCount > MAX_FAULT_ROTORS) {
+      throw new Error(`[DroneViewer] faultInjection.rotorCount must be an integer within [1, ${MAX_FAULT_ROTORS}].`);
     }
   }
   const mode = config.stateInput?.mode;
@@ -158,6 +173,25 @@ export class DroneViewer {
   configure(partialConfig = {}) {
     validateViewerConfig(partialConfig);
     this.viewerConfig = deepClone(partialConfig);
+    const fault = this.viewerConfig.faultInjection;
+    if (fault) {
+      this.faultInjectionState = new FaultInjectionState({ rotorCount: fault.rotorCount });
+      this.disturbanceWriter = new DisturbanceWriter({
+        robotName: fault.robotName,
+        pduName: fault.pduName ?? "disturb",
+      });
+    }
+  }
+
+  /** The configured fault injection target, or null when the config has none. */
+  getFaultInjectionConfig() {
+    const fault = this.viewerConfig?.faultInjection;
+    if (!fault) return null;
+    return {
+      robotName: fault.robotName,
+      pduName: fault.pduName ?? "disturb",
+      rotorCount: fault.rotorCount,
+    };
   }
 
   getViewerConfig() {

@@ -271,6 +271,28 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("transparentBackground: this.viewerConfig", viewer)
         self.assertIn("renderer.setClearColor(0x000000, 0.0)", app)
 
+    def test_fault_injection_target_is_an_optional_viewer_setting(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/viewer-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        fault = schema["properties"]["faultInjection"]
+        self.assertEqual(fault["required"], ["robotName", "rotorCount"])
+        # The Drone service decodes at most 16 rotor scales.
+        self.assertEqual(fault["properties"]["rotorCount"]["maximum"], 16)
+        self.assertEqual(fault["properties"]["pduName"]["default"], "disturb")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("getFaultInjectionConfig()", viewer)
+        self.assertIn("new FaultInjectionState({ rotorCount: fault.rotorCount })", viewer)
+        self.assertIn("robotName: fault.robotName", viewer)
+        panel = (ROOT / "src/fault_injection/fault_panel.js").read_text(encoding="utf-8")
+        self.assertIn("export function mountFaultPanel(container, viewer)", panel)
+        self.assertIn("length: fault.rotorCount", panel)
+        self.assertIn("viewer.sendRotorFaultScales(scales)", panel)
+        index = (ROOT / "src/index.js").read_text(encoding="utf-8")
+        self.assertIn("mountFaultPanel", index)
+
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for command in (

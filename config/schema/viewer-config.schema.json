@@ -109,6 +109,28 @@
         }
       }
     },
+    "faultInjection": {
+      "type": "object",
+      "description": "Rotor fault and wind injection through the Drone disturbance PDU.",
+      "additionalProperties": false,
+      "required": ["robotName", "rotorCount"],
+      "properties": {
+        "robotName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pduName": {
+          "type": "string",
+          "minLength": 1,
+          "default": "disturb"
+        },
+        "rotorCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
     "stateInput": {
       "type": "object",
       "additionalProperties": false,
