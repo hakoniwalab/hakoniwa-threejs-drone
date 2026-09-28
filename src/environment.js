@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { RenderEntity } from "./render_entity.js";
 import { createBuildingEntitiesFromMjcfXml } from "./mjcf_building.js"; // ← MJCF版ビル群生成
 import { buildFpvCourse } from "./fpv_course.js";
+import { texturizeUntexturedSurfaces } from "./ground_texture.js";
 
 function applyRenderOverride(root, renderCfg) {
   if (!renderCfg || renderCfg.mode !== "wireframe") return;
@@ -35,6 +36,7 @@ function applyRenderOverride(root, renderCfg) {
  *   - pos: [x, y, z] （ROS 座標系）
  *   - hpr: [r, p, y] （deg, ROS）
  *   - scale: number
+ *   - groundTexture: false で、模様の無い地面・道路に模様を貼らない（既定は貼る）
  * @returns {Promise<RenderEntity>}
  */
 export async function buildEnvironment(scene, loader, envCfg) {
@@ -88,6 +90,11 @@ export async function buildEnvironment(scene, loader, envCfg) {
         }
       }
     });
+    // Untextured terrain/roads get a metre-scaled pattern (a height cue);
+    // groundTexture: false keeps the model's own flat colours.
+    if (envCfg.groundTexture !== false && envCfg.render?.mode !== "wireframe") {
+      texturizeUntexturedSurfaces(gltfRoot);
+    }
     applyRenderOverride(gltfRoot, envCfg.render);
 
     // RenderEntity にぶら下げる

@@ -297,6 +297,22 @@ class StaticViewerContractTest(unittest.TestCase):
         index = (ROOT / "src/index.js").read_text(encoding="utf-8")
         self.assertIn("mountFaultPanel", index)
 
+    def test_untextured_ground_gets_a_metre_scaled_pattern(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/scene-config.schema.json").read_text(encoding="utf-8")
+        )
+        environment = schema["properties"]["environments"]["items"]["properties"]
+        self.assertEqual(environment["groundTexture"]["default"], True)
+        source = (ROOT / "src/ground_texture.js").read_text(encoding="utf-8")
+        # Only meshes with neither a texture nor UVs, projected top-down in metres.
+        self.assertIn("hasTexture(mesh.material) || mesh.geometry?.attributes?.uv", source)
+        self.assertIn("uv[i * 2] = point.x / tile;", source)
+        self.assertIn("uv[i * 2 + 1] = point.z / tile;", source)
+        self.assertIn('/road/i.test(node.name || "")', source)
+        environment_js = (ROOT / "src/environment.js").read_text(encoding="utf-8")
+        self.assertIn("envCfg.groundTexture !== false", environment_js)
+        self.assertIn("texturizeUntexturedSurfaces(gltfRoot)", environment_js)
+
     def test_readme_uses_current_operational_contract(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for command in (
