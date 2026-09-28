@@ -34,6 +34,11 @@
             "maxItems": 3
           },
           "scale": { "type": "number" },
+          "groundTexture": {
+            "type": "boolean",
+            "default": true,
+            "description": "Give untextured, UV-less surfaces (City World terrain and roads) a metre-scaled ground pattern."
+          },
           "render": {
             "type": "object",
             "additionalProperties": false,
