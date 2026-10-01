@@ -319,6 +319,7 @@ class StaticViewerContractTest(unittest.TestCase):
             "python tools/hako.py doctor",
             "python tools/hako.py test",
             "python tools/hako.py smoke",
+            "python tools/hako.py serve",
         ):
             with self.subTest(command=command):
                 self.assertIn(command, readme)

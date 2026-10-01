@@ -76,7 +76,7 @@ git submodule update --init --recursive
 
 ## hako.py標準操作
 
-本リポジトリは、Business Packの`hako.py` CLI Contractに基づき、静的Webコンポーネントとして意味のある3操作を提供します。
+本リポジトリは、Business Packの`hako.py` CLI Contractに基づき、静的Webコンポーネントとして意味のある3操作を提供します（Viewerを配る`serve`は「単体起動」を参照）。
 
 ```bash
 python tools/hako.py doctor
@@ -88,7 +88,7 @@ python tools/hako.py smoke
 | --- | --- |
 | `doctor` | Python、必須ファイル、PDU JavaScript submodule、Viewer設定の参照先 |
 | `test` | Viewer設定契約、公開API、submodule、README運用契約 |
-| `smoke` | 一時HTTPサーバーを起動し、HTML・設定・公開Viewer module・PDU moduleを実際に取得 |
+| `smoke` | 一時HTTPサーバーを起動し、HTML・設定・公開Viewer module・PDU moduleを実際に取得（すべてのmoduleを一度に取得し、ブラウザの読み込みと同じ同時要求でも配れることも確認） |
 
 `smoke`は静的配信契約を検証します。ブラウザ描画、WebSocket接続、ドローン飛行までを検証するE2Eテストではありません。
 
@@ -99,8 +99,10 @@ python tools/hako.py smoke
 静的ファイルサーバーを起動します。
 
 ```bash
-python -m http.server 8000
+python tools/hako.py serve
 ```
+
+`--port`でポートを変えられます（既定8000）。Viewerは読み込み時に数十のES moduleを同時に要求するため、`python -m http.server`ではなくこのコマンドを使います（標準のサーバーは同時接続の待ち行列が5本しかなく、複数のViewerを開くと接続が切られて`error`になります）。
 
 ブラウザで開きます。
 
