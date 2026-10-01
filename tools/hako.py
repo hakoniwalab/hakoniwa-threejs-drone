@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import functools
 import http.server
 import json
@@ -105,9 +106,47 @@ def test() -> int:
     return subprocess.run(command, cwd=ROOT, check=False).returncode
 
 
-class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+class ViewerHTTPServer(http.server.ThreadingHTTPServer):
+    """A static server for the viewer. Its page loads dozens of ES modules at
+    once (more with several viewers open); the standard listen backlog of 5
+    resets the connections beyond it (ERR_CONNECTION_RESET: the viewer stops
+    with "error"). A long backlog lets them wait their turn."""
+
+    request_queue_size = 128
+    daemon_threads = True
+
+
+class _NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    """Every response fresh (the viewer is edited while it is served)."""
+
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        super().end_headers()
+
+
+class _QuietHandler(_NoCacheHandler):
     def log_message(self, format: str, *args: object) -> None:  # noqa: A003
         return
+
+
+def serve(port: int, bind: str) -> int:
+    """Serve the viewer (this repository) for a browser."""
+    handler = functools.partial(_NoCacheHandler, directory=str(ROOT))
+    server = ViewerHTTPServer((bind, port), handler)
+    print(f"Serving {ROOT} on http://{bind}:{server.server_address[1]}/index.html (Ctrl+C to stop)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+def _modules() -> list[str]:
+    """Every ES module the viewer may load (src/ and the PDU JavaScript)."""
+    roots = (ROOT / "src", ROOT / "thirdparty" / "hakoniwa-pdu-javascript" / "src")
+    return sorted("/" + path.relative_to(ROOT).as_posix() for root in roots for path in root.rglob("*.js"))
 
 
 def smoke() -> int:
@@ -118,7 +157,7 @@ def smoke() -> int:
         return 1
 
     handler = functools.partial(_QuietHandler, directory=str(ROOT))
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = ViewerHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -131,6 +170,18 @@ def smoke() -> int:
                 if response.status != 200 or not payload:
                     raise RuntimeError(f"unexpected response for {path}: status={response.status}")
             print(f"OK: {path}")
+        # Every module at once, as a browser loading the viewer asks for them.
+        modules = _modules()
+
+        def fetch(path: str) -> int:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
+                return response.status
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+            statuses = list(pool.map(fetch, modules))
+        if any(status != 200 for status in statuses):
+            raise RuntimeError("some modules were not served")
+        print(f"OK: {len(modules)} modules at once")
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: smoke failed: {exc}", file=sys.stderr)
         return 1
@@ -145,9 +196,13 @@ def smoke() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("doctor", "test", "smoke"))
+    parser.add_argument("command", choices=("doctor", "test", "smoke", "serve"))
+    parser.add_argument("--port", type=int, default=8000, help="serve: the port (default 8000)")
+    parser.add_argument("--bind", default="127.0.0.1", help="serve: the address (default 127.0.0.1)")
     args = parser.parse_args()
 
+    if args.command == "serve":
+        return serve(args.port, args.bind)
     return {
         "doctor": doctor,
         "test": test,
