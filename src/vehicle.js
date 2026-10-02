@@ -46,7 +46,27 @@ async function loadGltfScene(loader, url) {
   if (!gltfCache.has(url)) {
     gltfCache.set(url, loader.loadAsync(url).then((gltf) => gltf.scene));
   }
-  return (await gltfCache.get(url)).clone(true);
+  return withSpotTargets((await gltfCache.get(url)).clone(true));
+}
+
+// SpotLight.clone() gives the light a copy of its target that is not in the
+// scene graph (while the cloned child target stays unused), so a cloned GLB's
+// spot lights would aim at the world origin. Re-aim each one along its own -Z
+// (glTF's light axis), with a target that moves with it.
+function withSpotTargets(root) {
+  const spots = [];
+  root.traverse((object) => {
+    if (object.isSpotLight) spots.push(object);
+  });
+  for (const light of spots) {
+    for (const child of [...light.children]) {
+      if (!child.isLight && child.children.length === 0 && child.type === "Object3D") light.remove(child);
+    }
+    light.target = new THREE.Object3D();
+    light.target.position.set(0, 0, -1);
+    light.add(light.target);
+  }
+  return root;
 }
 
 export class Vehicle {
