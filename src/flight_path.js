@@ -1,0 +1,81 @@
+// Planned Drone flight paths drawn over the scene (viewerConfig.flightPaths).
+//
+// Each path is the line a Drone's schedule flies, from its takeoff to its
+// landing: [{east_m, north_m, up_m, kind, label, stand?, again?}] in Urban ENU
+// metres, kind "takeoff" | "waypoint" | "land". The scene frame is X = East,
+// Y = Up, Z = -North (ROS (x, y, z) -> (-y, z, -x), as the Drones are drawn).
+// The line is blue; each point is a ball (takeoff green, landing orange), and
+// T, L and the waypoint numbers are labels that face the camera.
+
+import * as THREE from "three";
+
+const KIND_COLORS = { takeoff: "#2e9d4f", waypoint: "#2e7dd7", land: "#d0572a" };
+
+const toScene = (point) => new THREE.Vector3(point.east_m, point.up_m, -point.north_m);
+
+// A round badge with text that always faces the camera.
+function labelSprite(text, color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  context.fillStyle = color;
+  context.beginPath();
+  context.arc(32, 32, 28, 0, Math.PI * 2);
+  context.fill();
+  context.lineWidth = 4;
+  context.strokeStyle = "#ffffff";
+  context.stroke();
+  context.fillStyle = "#ffffff";
+  context.font = "bold 30px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(String(text), 32, 34);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+  sprite.scale.set(1.4, 1.4, 1);
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
+export function validateFlightPaths(paths) {
+  if (!Array.isArray(paths)) {
+    throw new Error("[DroneViewer] flightPaths must be an array.");
+  }
+  for (const path of paths) {
+    if (!Array.isArray(path?.points) || path.points.some((point) =>
+      !["east_m", "north_m", "up_m"].every((key) => Number.isFinite(point?.[key])))) {
+      throw new Error("[DroneViewer] flightPaths[].points must be [{east_m, north_m, up_m, ...}].");
+    }
+  }
+}
+
+export function buildFlightPathGroup(paths) {
+  const group = new THREE.Group();
+  group.name = "flight-paths";
+  for (const path of paths) {
+    const points = path.points;
+    if (points.length > 1) {
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(points.map(toScene)),
+        new THREE.LineBasicMaterial({ color: 0x2e7dd7 }),
+      );
+      line.renderOrder = 5;
+      group.add(line);
+    }
+    points.forEach((point, index) => {
+      const color = KIND_COLORS[point.kind] ?? KIND_COLORS.waypoint;
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshBasicMaterial({ color }));
+      ball.position.copy(toScene(point));
+      group.add(ball);
+      // One label per place: T at the top of the climb, L over the landing point, each waypoint once.
+      const labelled = point.kind === "waypoint" ? !point.again
+        : !point.stand && !(point.kind === "takeoff" && points.slice(0, index).some((item) => item.kind === "takeoff" && !item.stand));
+      if (labelled) {
+        const label = labelSprite(point.label ?? "", color);
+        label.position.copy(toScene(point)).add(new THREE.Vector3(0, 1.2, 0));
+        group.add(label);
+      }
+    });
+  }
+  return group;
+}

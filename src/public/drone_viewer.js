@@ -5,6 +5,7 @@ import { DroneRenderManager } from "./drone_render_manager.js";
 import { FaultInjectionState } from "../fault_injection/fault_injection_state.js";
 import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
+import { buildFlightPathGroup, validateFlightPaths } from "../flight_path.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -94,6 +95,9 @@ function validateViewerConfig(config) {
       throw new Error(`[DroneViewer] faultInjection.rotorCount must be an integer within [1, ${MAX_FAULT_ROTORS}].`);
     }
   }
+  if (config.flightPaths != null) {
+    validateFlightPaths(config.flightPaths);
+  }
   const mode = config.stateInput?.mode;
   if (mode !== "legacy" && mode !== "fleets" && mode !== "none") {
     throw new Error(`[DroneViewer] Invalid stateInput.mode: ${mode}`);
@@ -161,6 +165,7 @@ export class DroneViewer {
     this.vehicleStateSource = null;
     this.renderManager = null;
     this.faultInjectionState = new FaultInjectionState();
+    this.flightPathGroup = null;
     this.disturbanceWriter = new DisturbanceWriter();
     this.syncHookInstalled = false;
     this.syncInFlight = null;
@@ -405,6 +410,23 @@ export class DroneViewer {
 
   setNightMode(enabled) {
     return setNightMode(!!enabled);
+  }
+
+  /** Whether the config carries planned flight paths (viewerConfig.flightPaths). */
+  hasFlightPaths() {
+    return (this.viewerConfig?.flightPaths?.length ?? 0) > 0;
+  }
+
+  /** Show or hide the planned flight paths over the scene; returns whether they show. */
+  setFlightPathsVisible(enabled) {
+    if (!this.hasFlightPaths()) return false;
+    if (enabled && !this.flightPathGroup) {
+      this.flightPathGroup = addSceneDecoration(buildFlightPathGroup(this.viewerConfig.flightPaths));
+    } else if (!enabled && this.flightPathGroup) {
+      removeSceneDecoration(this.flightPathGroup);
+      this.flightPathGroup = null;
+    }
+    return Boolean(this.flightPathGroup);
   }
 
   getNightMode() {
