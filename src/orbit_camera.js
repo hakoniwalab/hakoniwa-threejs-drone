@@ -58,6 +58,17 @@ export class OrbitCamera {
     this._tmpDesiredPos = new THREE.Vector3();
     this._tmpDir = new THREE.Vector3();
 
+    // The direction from the target to the camera while following. It is
+    // held: only the user's own orbiting changes it. Re-reading it from the
+    // lagging camera every frame turned the camera towards the vertical when
+    // the target climbed or dropped fast, and near the pole the view spun.
+    this._followDir = new THREE.Vector3().copy(this.camera.position).sub(this.controls.target);
+    if (this._followDir.lengthSq() < 1e-6) this._followDir.set(0, 1, 0);
+    this._followDir.normalize();
+    this._userOrbiting = false;
+    this.controls.addEventListener("start", () => { this._userOrbiting = true; });
+    this.controls.addEventListener("end", () => { this._userOrbiting = false; });
+
     // キーボード切り替え
     this._onKeyDown = (e) => {
       if (e.key === this.followToggleKey) {
@@ -73,12 +84,19 @@ export class OrbitCamera {
 
   setMode(mode) {
     if (mode !== "follow" && mode !== "fixed") return;
+    if (mode === "follow" && this.mode !== "follow") this._captureFollowDir();
     this.mode = mode;
   }
 
   toggleMode() {
-    this.mode = (this.mode === "follow") ? "fixed" : "follow";
+    this.setMode(this.mode === "follow" ? "fixed" : "follow");
     console.log("[OrbitCamera] mode:", this.mode);
+  }
+
+  // Follow from where the camera is now (entering follow mode).
+  _captureFollowDir() {
+    this._tmpDir.copy(this.camera.position).sub(this.controls.target);
+    if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
   }
   update(dt) {
     // 追従しない場合はここまで
@@ -114,12 +132,12 @@ export class OrbitCamera {
     // target を dronePos ににじませる
     currentTarget.lerp(dronePos, alphaTarget);
 
-    // 現在のカメラ → target ベクトルの「向き」だけ使う
-    this._tmpDir.copy(this.camera.position).sub(currentTarget);
-    if (this._tmpDir.lengthSq() < 1e-6) {
-      this._tmpDir.set(0, 1, 0);
+    // ユーザーが回しているときだけ、カメラ → target の向きを取り直す（それ以外は保持）
+    if (this._userOrbiting) {
+      this._tmpDir.copy(this.camera.position).sub(currentTarget);
+      if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
     }
-    this._tmpDir.normalize().multiplyScalar(this.followDistance);
+    this._tmpDir.copy(this._followDir).multiplyScalar(this.followDistance);
 
     // 「target + 指定距離のオフセット」を目標位置とする
     this._tmpDesiredPos.copy(currentTarget).add(this._tmpDir);
