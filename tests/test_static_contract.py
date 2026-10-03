@@ -297,6 +297,22 @@ class StaticViewerContractTest(unittest.TestCase):
         index = (ROOT / "src/index.js").read_text(encoding="utf-8")
         self.assertIn("mountFaultPanel", index)
 
+    def test_planned_flight_paths_are_an_optional_overlay(self) -> None:
+        schema = json.loads(
+            (ROOT / "config/schema/viewer-config.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        point = schema["properties"]["flightPaths"]["items"]["properties"]["points"]["items"]
+        self.assertEqual(point["required"], ["east_m", "north_m", "up_m"])
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("hasFlightPaths()", viewer)
+        self.assertIn("setFlightPathsVisible(enabled)", viewer)
+        self.assertIn("validateFlightPaths(config.flightPaths)", viewer)
+        overlay = (ROOT / "src/flight_path.js").read_text(encoding="utf-8")
+        # ENU to the scene as the Drones are drawn: ROS (x, y, z) -> (-y, z, -x).
+        self.assertIn("new THREE.Vector3(point.east_m, point.up_m, -point.north_m)", overlay)
+
     def test_untextured_ground_gets_a_metre_scaled_pattern(self) -> None:
         schema = json.loads(
             (ROOT / "config/schema/scene-config.schema.json").read_text(encoding="utf-8")

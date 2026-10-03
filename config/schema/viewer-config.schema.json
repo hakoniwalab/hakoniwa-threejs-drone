@@ -131,6 +131,34 @@
         }
       }
     },
+    "flightPaths": {
+      "type": "array",
+      "description": "Planned Drone flight paths drawn on request (DroneViewer.setFlightPathsVisible). Points are Urban ENU metres: the scene's X = east_m, Y = up_m, Z = -north_m.",
+      "items": {
+        "type": "object",
+        "required": ["points"],
+        "properties": {
+          "drone": { "type": "string" },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["east_m", "north_m", "up_m"],
+              "properties": {
+                "east_m": { "type": "number" },
+                "north_m": { "type": "number" },
+                "up_m": { "type": "number" },
+                "kind": { "enum": ["takeoff", "waypoint", "land"] },
+                "label": { "type": "string" },
+                "name": { "type": "string" },
+                "stand": { "type": "boolean" },
+                "again": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
     "stateInput": {
       "type": "object",
       "additionalProperties": false,
