@@ -655,9 +655,12 @@ export async function main(
 }
 
 export function focusDroneById(droneId, { snap = true } = {}) {
-  if (!orbitCam || !drones?.length) return false;
+  if (!orbitCam) return false;
 
-  const target = drones.find(d => String(d.droneId) === String(droneId));
+  // The viewer's selection lists vehicles (cars, carts, people) after the
+  // drones, by vehicleId: follow whichever is chosen.
+  const target = (drones ?? []).find(d => String(d.droneId) === String(droneId))
+    ?? (vehicles ?? []).find(v => String(v.vehicleId) === String(droneId));
   if (!target) return false;
 
   orbitCam.setFollowTarget(target);
