@@ -7,10 +7,11 @@
 // what the physics did (wind, inertia, a collision). The lines are a few
 // pixels wide (fat_line.js) and redrawn at most every REDRAW_SEC.
 //
-// pin() keeps the current tracks as "pinned" ones (green, for drones and
-// vehicles alike) and starts the live ones afresh, so a second run (a what-if
-// scenario) can be compared with the first in one view. Pinned tracks show
-// whenever the tracks show, and are kept in localStorage per scene (see
+// pin() keeps the current tracks as "pinned" ones and starts the live ones
+// afresh, so a second run (a what-if scenario) can be compared with the first
+// in one view. Each pin has its own colour, for drones and vehicles alike:
+// green the first time, purple the second, then teal and brown (PINNED_COLORS).
+// Pinned tracks show whenever the tracks show, and are kept in localStorage per scene (see
 // pinnedTrailsStorageKey) so a page reload or a simulation restart keeps them.
 
 import * as THREE from "three";
@@ -25,7 +26,7 @@ const MAX_POINTS = 20000;  // per entity; the older half is dropped after that
 const REDRAW_SEC = 0.3;
 const WIDTH_PX = 4;
 const COLORS = { drone: 0xe53935, vehicle: 0xff8f00 };
-const PINNED_COLOR = 0x43a047;
+const PINNED_COLORS = [0x43a047, 0x8e24aa, 0x00897b, 0x6d4c41];  // by pin: green, purple, teal, brown
 const PINNED_WIDTH_PX = 3;
 const MAX_PINNED_TRACKS = 200;  // the oldest pinned tracks are dropped after that
 const STORAGE_PREFIX = "hakoniwa.pinnedTrails:";
@@ -82,11 +83,12 @@ class Track {
 
 // A kept track: drawn once, never updated.
 class PinnedTrack {
-  constructor(key, kind, points) {
+  constructor(key, kind, points, round = 0) {
     this.key = key;
     this.kind = kind;
+    this.round = round;  // which pin it came from (0 first): its colour
     this.points = points.slice(-MAX_POINTS);
-    this.line = makeFatLine(this.points, PINNED_COLOR, PINNED_WIDTH_PX);
+    this.line = makeFatLine(this.points, PINNED_COLORS[round % PINNED_COLORS.length], PINNED_WIDTH_PX);
     this.line.renderOrder = 5;  // under the live tracks
   }
 }
@@ -99,6 +101,7 @@ export class TrailRecorder {
     this.group.visible = false;
     this.tracks = new Map();
     this.pinned = [];
+    this.nextRound = 0;  // the next pin's colour (PINNED_COLORS)
     this.storageKey = options.storageKey ?? null;
     this.scratch = new THREE.Vector3();
     this.lastRedraw = 0;
@@ -146,16 +149,19 @@ export class TrailRecorder {
     this.tracks.clear();
   }
 
-  /** Keep every current track (green) and start the live ones afresh; returns how many were kept. */
+  /** Keep every current track (in this pin's colour) and start the live ones afresh; returns how many were kept. */
   pin() {
     let count = 0;
     for (const [key, track] of this.tracks) {
       if (track.points.length < 2) continue;
-      this.addPinned(key, track.kind, track.points);
+      this.addPinned(key, track.kind, track.points, this.nextRound);
       count += 1;
     }
     this.clear();
-    if (count > 0) this.savePinned();
+    if (count > 0) {
+      this.nextRound += 1;
+      this.savePinned();
+    }
     return count;
   }
 
@@ -166,6 +172,7 @@ export class TrailRecorder {
       disposeFatLine(pinned.line);
     }
     this.pinned = [];
+    this.nextRound = 0;
     const storage = getStorage();
     if (!storage || !this.storageKey) return;
     try {
@@ -196,14 +203,16 @@ export class TrailRecorder {
         points.push(new THREE.Vector3(x / 100, y / 100, z / 100));
       }
       if (points.length < 2) continue;
-      this.addPinned(String(item.key ?? ""), item.kind === "drone" ? "drone" : "vehicle", points);
+      const round = Number.isInteger(item.r) && item.r >= 0 ? item.r : 0;
+      this.addPinned(String(item.key ?? ""), item.kind === "drone" ? "drone" : "vehicle", points, round);
+      this.nextRound = Math.max(this.nextRound, round + 1);
       count += 1;
     }
     return count;
   }
 
-  addPinned(key, kind, points) {
-    const pinned = new PinnedTrack(key, kind, points);
+  addPinned(key, kind, points, round = 0) {
+    const pinned = new PinnedTrack(key, kind, points, round);
     this.pinned.push(pinned);
     this.group.add(pinned.line);
     while (this.pinned.length > MAX_PINNED_TRACKS) {
@@ -230,7 +239,7 @@ export class TrailRecorder {
     };
     const data = {
       version: STORAGE_VERSION,
-      tracks: this.pinned.map((pinned) => ({ key: pinned.key, kind: pinned.kind, p: encode(pinned.points) })),
+      tracks: this.pinned.map((pinned) => ({ key: pinned.key, kind: pinned.kind, r: pinned.round, p: encode(pinned.points) })),
     };
     try {
       storage.setItem(this.storageKey, JSON.stringify(data));

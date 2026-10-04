@@ -359,6 +359,14 @@ class StaticViewerContractTest(unittest.TestCase):
         for method in ("setCameraPose(pose)", "getCameraPose()", "setAttachedCamerasEnabled(enabled)"):
             self.assertIn(method, viewer)
 
+    def test_each_pin_has_its_own_colour(self) -> None:
+        trail = (ROOT / "src/trail.js").read_text(encoding="utf-8")
+        # Green the first time (the normal run), purple the second (a what-if), ...
+        self.assertIn("const PINNED_COLORS = [0x43a047, 0x8e24aa,", trail)
+        self.assertIn("this.addPinned(key, track.kind, track.points, this.nextRound);", trail)
+        # The pin a track came from is stored, so a reload keeps the colours.
+        self.assertIn("r: pinned.round", trail)
+
     def test_trails_can_be_pinned_and_kept_across_reloads(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         self.assertIn("pinTrails()", viewer)
@@ -369,13 +377,13 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("this.trails.restorePinned();", viewer)
         self.assertIn("pinnedTrailsStorageKey(loc?.search", viewer)
         trail = (ROOT / "src/trail.js").read_text(encoding="utf-8")
-        self.assertIn("const PINNED_COLOR = 0x43a047;", trail)
+        self.assertIn("const PINNED_COLORS = [0x43a047,", trail)
         self.assertIn("export function pinnedTrailsStorageKey(", trail)
         self.assertIn('params.get("viewerConfigPath") || params.get("viewerConfigName")', trail)
         self.assertIn("pin() {", trail)
         self.assertIn("clearPinned() {", trail)
         # Pinning starts the live tracks afresh.
-        self.assertIn("this.clear();\n    if (count > 0) this.savePinned();", trail)
+        self.assertIn("this.clear();\n    if (count > 0) {\n      this.nextRound += 1;\n      this.savePinned();", trail)
         # Stored in centimetres; the viewer works without storage.
         self.assertIn("Math.round(point.x * 100)", trail)
         self.assertIn("storage.setItem(this.storageKey, JSON.stringify(data));", trail)
