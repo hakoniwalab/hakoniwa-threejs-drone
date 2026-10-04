@@ -181,6 +181,10 @@
                 "road_friction": {
                   "type": "number", "minimum": 0,
                   "description": "The road's friction from this point on; the line is coloured by it (dry, wet, snow, ice)."
+                },
+                "road_width_m": {
+                  "type": "number", "exclusiveMinimum": 0,
+                  "description": "The width of the band where road_friction holds, drawn see-through in its colour."
                 }
               }
             }
