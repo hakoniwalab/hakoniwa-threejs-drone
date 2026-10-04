@@ -348,6 +348,28 @@ class StaticViewerContractTest(unittest.TestCase):
         # A jump (placed at its start, a reset) starts the track again: no line across the scene.
         self.assertIn("if (last && last.distanceTo(point) > JUMP_M) this.points = [];", trail)
 
+    def test_trails_can_be_pinned_and_kept_across_reloads(self) -> None:
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("pinTrails()", viewer)
+        self.assertIn("return this.ensureTrails().pin();", viewer)
+        self.assertIn("clearPinnedTrails()", viewer)
+        self.assertIn("this.ensureTrails().clearPinned();", viewer)
+        # Restored when the recorder is created, keyed by the scene.
+        self.assertIn("this.trails.restorePinned();", viewer)
+        self.assertIn("pinnedTrailsStorageKey(loc?.search", viewer)
+        trail = (ROOT / "src/trail.js").read_text(encoding="utf-8")
+        self.assertIn("const PINNED_COLOR = 0x43a047;", trail)
+        self.assertIn("export function pinnedTrailsStorageKey(", trail)
+        self.assertIn('params.get("viewerConfigPath") || params.get("viewerConfigName")', trail)
+        self.assertIn("pin() {", trail)
+        self.assertIn("clearPinned() {", trail)
+        # Pinning starts the live tracks afresh.
+        self.assertIn("this.clear();\n    if (count > 0) this.savePinned();", trail)
+        # Stored in centimetres; the viewer works without storage.
+        self.assertIn("Math.round(point.x * 100)", trail)
+        self.assertIn("storage.setItem(this.storageKey, JSON.stringify(data));", trail)
+        self.assertGreaterEqual(trail.count("try {"), 4)
+
     def test_untextured_ground_gets_a_metre_scaled_pattern(self) -> None:
         schema = json.loads(
             (ROOT / "config/schema/scene-config.schema.json").read_text(encoding="utf-8")
