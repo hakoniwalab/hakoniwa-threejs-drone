@@ -5,7 +5,8 @@ import { DroneRenderManager } from "./drone_render_manager.js";
 import { FaultInjectionState } from "../fault_injection/fault_injection_state.js";
 import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
-import { buildFlightPathGroup, validateFlightPaths } from "../flight_path.js";
+import { buildFlightPathGroup, validateFlightPaths, validateRoutePaths } from "../flight_path.js";
+import { TrailRecorder } from "../trail.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -98,6 +99,9 @@ function validateViewerConfig(config) {
   if (config.flightPaths != null) {
     validateFlightPaths(config.flightPaths);
   }
+  if (config.routePaths != null) {
+    validateRoutePaths(config.routePaths);
+  }
   const mode = config.stateInput?.mode;
   if (mode !== "legacy" && mode !== "fleets" && mode !== "none") {
     throw new Error(`[DroneViewer] Invalid stateInput.mode: ${mode}`);
@@ -166,6 +170,7 @@ export class DroneViewer {
     this.renderManager = null;
     this.faultInjectionState = new FaultInjectionState();
     this.flightPathGroup = null;
+    this.trails = null;
     this.disturbanceWriter = new DisturbanceWriter();
     this.syncHookInstalled = false;
     this.syncInFlight = null;
@@ -229,6 +234,7 @@ export class DroneViewer {
     this.renderManager = new DroneRenderManager({ getDrones });
     if (!this.syncHookInstalled) {
       setBeforeDronesUpdateHook((dt) => {
+        this.recordTrails();
         const intervalMsec = this.viewerConfig?.ui?.statePanelIntervalMsec ?? 100;
         this.syncElapsedMsec += Math.max(0, Number(dt) || 0) * 1000;
         if (this.syncElapsedMsec < intervalMsec || this.syncInFlight) {
@@ -412,21 +418,67 @@ export class DroneViewer {
     return setNightMode(!!enabled);
   }
 
-  /** Whether the config carries planned flight paths (viewerConfig.flightPaths). */
-  hasFlightPaths() {
-    return (this.viewerConfig?.flightPaths?.length ?? 0) > 0;
+  /** Whether the config carries planned paths (viewerConfig.flightPaths, routePaths). */
+  hasPlannedPaths() {
+    return (this.viewerConfig?.flightPaths?.length ?? 0) + (this.viewerConfig?.routePaths?.length ?? 0) > 0;
   }
 
-  /** Show or hide the planned flight paths over the scene; returns whether they show. */
-  setFlightPathsVisible(enabled) {
-    if (!this.hasFlightPaths()) return false;
+  /** Show or hide the planned paths over the scene; returns whether they show. */
+  setPlannedPathsVisible(enabled) {
+    if (!this.hasPlannedPaths()) return false;
     if (enabled && !this.flightPathGroup) {
-      this.flightPathGroup = addSceneDecoration(buildFlightPathGroup(this.viewerConfig.flightPaths));
+      this.flightPathGroup = addSceneDecoration(buildFlightPathGroup(
+        this.viewerConfig.flightPaths ?? [], this.viewerConfig.routePaths ?? []));
     } else if (!enabled && this.flightPathGroup) {
       removeSceneDecoration(this.flightPathGroup);
       this.flightPathGroup = null;
     }
     return Boolean(this.flightPathGroup);
+  }
+
+  // Earlier names, kept for panels that call them.
+  hasFlightPaths() {
+    return this.hasPlannedPaths();
+  }
+
+  setFlightPathsVisible(enabled) {
+    return this.setPlannedPathsVisible(enabled);
+  }
+
+  /** Record where every Drone and vehicle is (every frame; the tracks show on request). */
+  recordTrails() {
+    // Never let the tracks stop the viewer's frame loop.
+    try {
+      this.recordTrailPoints();
+    } catch (e) {
+      if (!this.trailErrorLogged) console.error("[DroneViewer] recording trails failed:", e);
+      this.trailErrorLogged = true;
+    }
+  }
+
+  recordTrailPoints() {
+    this.ensureTrails().update([
+      ...getDrones().map((drone, index) => ({ key: `drone:${drone.droneId ?? index}`, kind: "drone", entity: drone })),
+      ...getVehicles().map((vehicle, index) => ({ key: `vehicle:${vehicle.config?.name ?? index}`, kind: "vehicle", entity: vehicle })),
+    ]);
+  }
+
+  /** Show or hide the actual tracks (they are recorded either way); returns whether they show. */
+  setTrailsVisible(enabled) {
+    return this.ensureTrails().setVisible(enabled);
+  }
+
+  ensureTrails() {
+    if (!this.trails) {
+      this.trails = new TrailRecorder();
+      addSceneDecoration(this.trails.group);
+    }
+    return this.trails;
+  }
+
+  /** Forget the tracks recorded so far. */
+  clearTrails() {
+    this.trails?.clear();
   }
 
   getNightMode() {

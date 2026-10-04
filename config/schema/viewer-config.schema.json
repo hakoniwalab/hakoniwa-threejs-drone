@@ -159,6 +159,31 @@
         }
       }
     },
+    "routePaths": {
+      "type": "array",
+      "description": "Planned vehicle routes drawn with the flight paths (DroneViewer.setPlannedPathsVisible): points in Urban ENU metres, dense enough to follow the ground (bridges, slopes).",
+      "items": {
+        "type": "object",
+        "required": ["points"],
+        "properties": {
+          "route": { "type": "string" },
+          "vehicles": { "type": "array", "items": { "type": "string" } },
+          "closed": { "type": "boolean" },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["east_m", "north_m", "up_m"],
+              "properties": {
+                "east_m": { "type": "number" },
+                "north_m": { "type": "number" },
+                "up_m": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    },
     "stateInput": {
       "type": "object",
       "additionalProperties": false,

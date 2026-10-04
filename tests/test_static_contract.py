@@ -312,6 +312,22 @@ class StaticViewerContractTest(unittest.TestCase):
         overlay = (ROOT / "src/flight_path.js").read_text(encoding="utf-8")
         # ENU to the scene as the Drones are drawn: ROS (x, y, z) -> (-y, z, -x).
         self.assertIn("new THREE.Vector3(point.east_m, point.up_m, -point.north_m)", overlay)
+        # Vehicle routes are planned paths too.
+        route = schema["properties"]["routePaths"]["items"]["properties"]["points"]["items"]
+        self.assertEqual(route["required"], ["east_m", "north_m", "up_m"])
+        self.assertIn("hasPlannedPaths()", viewer)
+        self.assertIn("setPlannedPathsVisible(enabled)", viewer)
+        self.assertIn("validateRoutePaths(config.routePaths)", viewer)
+
+    def test_actual_tracks_are_recorded_and_shown_on_request(self) -> None:
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        # Recorded every frame whether or not they show.
+        self.assertIn("this.recordTrails();", viewer)
+        self.assertIn("setTrailsVisible(enabled)", viewer)
+        self.assertIn("clearTrails()", viewer)
+        trail = (ROOT / "src/trail.js").read_text(encoding="utf-8")
+        self.assertIn("export class TrailRecorder", trail)
+        self.assertIn("entity.getWorldPosition(this.scratch)", trail)
 
     def test_untextured_ground_gets_a_metre_scaled_pattern(self) -> None:
         schema = json.loads(

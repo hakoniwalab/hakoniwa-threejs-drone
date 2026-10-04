@@ -1,4 +1,5 @@
-// Planned Drone flight paths drawn over the scene (viewerConfig.flightPaths).
+// Planned paths drawn over the scene: Drone flight paths (viewerConfig.flightPaths)
+// and the routes vehicles drive (viewerConfig.routePaths).
 //
 // Each path is the line a Drone's schedule flies, from its takeoff to its
 // landing: [{east_m, north_m, up_m, kind, label, stand?, again?}] in Urban ENU
@@ -8,8 +9,11 @@
 // T, L and the waypoint numbers are labels that face the camera.
 
 import * as THREE from "three";
+import { makeFatLine } from "./fat_line.js";
 
 const KIND_COLORS = { takeoff: "#2e9d4f", waypoint: "#2e7dd7", land: "#d0572a" };
+const ROUTE_COLOR = 0x4fc3f7;  // vehicle routes: lighter than the Drones' blue
+const WIDTH_PX = 3;  // the planned lines (the actual tracks are 4 px, trail.js)
 
 const toScene = (point) => new THREE.Vector3(point.east_m, point.up_m, -point.north_m);
 
@@ -49,16 +53,39 @@ export function validateFlightPaths(paths) {
   }
 }
 
-export function buildFlightPathGroup(paths) {
+// routePaths: [{route, vehicles, closed, points: [{east_m, north_m, up_m}]}], the
+// points dense enough to follow the ground (bridges, slopes) between waypoints.
+export function validateRoutePaths(routes) {
+  if (!Array.isArray(routes)) {
+    throw new Error("[DroneViewer] routePaths must be an array.");
+  }
+  for (const route of routes) {
+    if (!Array.isArray(route?.points) || route.points.some((point) =>
+      !["east_m", "north_m", "up_m"].every((key) => Number.isFinite(point?.[key])))) {
+      throw new Error("[DroneViewer] routePaths[].points must be [{east_m, north_m, up_m}].");
+    }
+  }
+}
+
+function addRoutePaths(group, routes) {
+  for (const route of routes) {
+    const points = route.points.map(toScene);
+    if (route.closed && points.length > 2) points.push(points[0].clone());
+    if (points.length < 2) continue;
+    const line = makeFatLine(points, ROUTE_COLOR, WIDTH_PX);
+    line.renderOrder = 5;
+    group.add(line);
+  }
+}
+
+export function buildFlightPathGroup(paths, routes = []) {
   const group = new THREE.Group();
-  group.name = "flight-paths";
+  group.name = "planned-paths";
+  addRoutePaths(group, routes);
   for (const path of paths) {
     const points = path.points;
     if (points.length > 1) {
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(points.map(toScene)),
-        new THREE.LineBasicMaterial({ color: 0x2e7dd7 }),
-      );
+      const line = makeFatLine(points.map(toScene), 0x2e7dd7, WIDTH_PX);
       line.renderOrder = 5;
       group.add(line);
     }
