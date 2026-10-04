@@ -11,6 +11,10 @@ import * as THREE from "three";
 import { disposeFatLine, makeFatLine, setFatLinePoints } from "./fat_line.js";
 
 const MIN_STEP_M = 0.2;
+// A step this long between two samples is not a move but a jump: the viewer
+// placing a Drone or vehicle where it starts (it is drawn somewhere else
+// before its first state arrives) or a reset. The track starts again there.
+const JUMP_M = 5.0;
 const MAX_POINTS = 20000;  // per entity; the older half is dropped after that
 const REDRAW_SEC = 0.3;
 const WIDTH_PX = 4;
@@ -27,6 +31,7 @@ class Track {
   add(point) {
     const last = this.points[this.points.length - 1];
     if (last && last.distanceTo(point) < MIN_STEP_M) return;
+    if (last && last.distanceTo(point) > JUMP_M) this.points = [];
     if (this.points.length >= MAX_POINTS) this.points = this.points.slice(MAX_POINTS / 2);
     this.points.push(point.clone());
     this.dirty = true;

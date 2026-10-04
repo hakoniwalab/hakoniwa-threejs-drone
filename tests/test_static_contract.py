@@ -328,6 +328,8 @@ class StaticViewerContractTest(unittest.TestCase):
         trail = (ROOT / "src/trail.js").read_text(encoding="utf-8")
         self.assertIn("export class TrailRecorder", trail)
         self.assertIn("entity.getWorldPosition(this.scratch)", trail)
+        # A jump (placed at its start, a reset) starts the track again: no line across the scene.
+        self.assertIn("if (last && last.distanceTo(point) > JUMP_M) this.points = [];", trail)
 
     def test_untextured_ground_gets_a_metre_scaled_pattern(self) -> None:
         schema = json.loads(
