@@ -177,7 +177,11 @@
               "properties": {
                 "east_m": { "type": "number" },
                 "north_m": { "type": "number" },
-                "up_m": { "type": "number" }
+                "up_m": { "type": "number" },
+                "road_friction": {
+                  "type": "number", "minimum": 0,
+                  "description": "The road's friction from this point on; the line is coloured by it (dry, wet, snow, ice)."
+                }
               }
             }
           }

@@ -13,6 +13,20 @@ import { makeFatLine } from "./fat_line.js";
 
 const KIND_COLORS = { takeoff: "#2e9d4f", waypoint: "#2e7dd7", land: "#d0572a" };
 const ROUTE_COLOR = 0x4fc3f7;  // vehicle routes: lighter than the Drones' blue
+// A route whose points carry road_friction is coloured by it, grippy to
+// slippery (the guideline bands of hakoniwa-urban-mobility
+// docs/asset-contract.md 4.4; the Studio's web/friction.js uses the same).
+const FRICTION_BANDS = [
+  { min: 0.7, color: 0x43a047 },   // dry
+  { min: 0.35, color: 0xfdd835 },  // wet
+  { min: 0.15, color: 0xfb8c00 },  // snow
+  { min: 0, color: 0x8e24aa },     // ice
+];
+
+function frictionColor(value) {
+  if (!Number.isFinite(value)) return ROUTE_COLOR;
+  return FRICTION_BANDS.find((band) => value >= band.min).color;
+}
 const WIDTH_PX = 3;  // the planned lines (the actual tracks are 4 px, trail.js)
 
 const toScene = (point) => new THREE.Vector3(point.east_m, point.up_m, -point.north_m);
@@ -53,8 +67,9 @@ export function validateFlightPaths(paths) {
   }
 }
 
-// routePaths: [{route, vehicles, closed, points: [{east_m, north_m, up_m}]}], the
-// points dense enough to follow the ground (bridges, slopes) between waypoints.
+// routePaths: [{route, vehicles, closed, points: [{east_m, north_m, up_m, road_friction?}]}],
+// the points dense enough to follow the ground (bridges, slopes) between
+// waypoints; road_friction is the road's friction from that point on.
 export function validateRoutePaths(routes) {
   if (!Array.isArray(routes)) {
     throw new Error("[DroneViewer] routePaths must be an array.");
@@ -69,12 +84,23 @@ export function validateRoutePaths(routes) {
 
 function addRoutePaths(group, routes) {
   for (const route of routes) {
-    const points = route.points.map(toScene);
-    if (route.closed && points.length > 2) points.push(points[0].clone());
-    if (points.length < 2) continue;
-    const line = makeFatLine(points, ROUTE_COLOR, WIDTH_PX);
-    line.renderOrder = 5;
-    group.add(line);
+    const samples = [...route.points];
+    if (route.closed && samples.length > 2) samples.push(samples[0]);
+    if (samples.length < 2) continue;
+    // One line per run of the same colour; a run ends on the next run's
+    // first point so the line has no gaps.
+    let start = 0;
+    for (let index = 1; index <= samples.length; index += 1) {
+      const color = frictionColor(samples[start].road_friction);
+      if (index < samples.length && frictionColor(samples[index].road_friction) === color) continue;
+      const run = samples.slice(start, Math.min(index + 1, samples.length)).map(toScene);
+      if (run.length >= 2) {
+        const line = makeFatLine(run, color, WIDTH_PX);
+        line.renderOrder = 5;
+        group.add(line);
+      }
+      start = index;
+    }
   }
 }
 
