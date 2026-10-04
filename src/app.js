@@ -675,6 +675,31 @@ export function setCameraFollowEnabled(enabled) {
   return true;
 }
 
+// The main camera's pose in Urban ENU metres (east, north, up): where it is
+// and the point it looks at. Setting it stops following (a fixed view, e.g.
+// the same shot for several runs). The scene frame is X = East, Y = Up,
+// Z = -North.
+export function setCameraPose({ position, target, fov } = {}) {
+  if (!orbitCam) return false;
+  const valid = (value) => Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
+  if (!valid(position) || !valid(target)) return false;
+  orbitCam.setMode("fixed");
+  orbitCam.camera.position.set(position[0], position[2], -position[1]);
+  orbitCam.controls.target.set(target[0], target[2], -target[1]);
+  if (Number.isFinite(fov) && fov > 0) {
+    orbitCam.camera.fov = fov;
+    orbitCam.camera.updateProjectionMatrix();
+  }
+  orbitCam.controls.update();
+  return true;
+}
+
+export function getCameraPose() {
+  if (!orbitCam) return null;
+  const enu = (v) => [v.x, -v.z, v.y].map((value) => Math.round(value * 100) / 100);
+  return { position: enu(orbitCam.camera.position), target: enu(orbitCam.controls.target), fov: orbitCam.camera.fov };
+}
+
 // -------------------------------------------------------------
 //  loop
 // -------------------------------------------------------------

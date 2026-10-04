@@ -348,6 +348,17 @@ class StaticViewerContractTest(unittest.TestCase):
         # A jump (placed at its start, a reset) starts the track again: no line across the scene.
         self.assertIn("if (last && last.distanceTo(point) > JUMP_M) this.points = [];", trail)
 
+    def test_the_main_camera_pose_can_be_set_in_urban_enu(self) -> None:
+        app = (ROOT / "src/app.js").read_text(encoding="utf-8")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("export function setCameraPose({ position, target, fov } = {})", app)
+        self.assertIn("export function getCameraPose()", app)
+        # ENU (east, north, up) to the scene (x = east, y = up, z = -north); a pose stops following.
+        self.assertIn("orbitCam.camera.position.set(position[0], position[2], -position[1]);", app)
+        self.assertIn('orbitCam.setMode("fixed");', app)
+        for method in ("setCameraPose(pose)", "getCameraPose()", "setAttachedCamerasEnabled(enabled)"):
+            self.assertIn(method, viewer)
+
     def test_trails_can_be_pinned_and_kept_across_reloads(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         self.assertIn("pinTrails()", viewer)
