@@ -6,7 +6,8 @@
 // metres, kind "takeoff" | "waypoint" | "land". The scene frame is X = East,
 // Y = Up, Z = -North (ROS (x, y, z) -> (-y, z, -x), as the Drones are drawn).
 // The line is blue; each point is a ball (takeoff green, landing orange), and
-// T, L and the waypoint numbers are labels that face the camera.
+// T, L and the waypoint numbers are labels that face the camera. A path's
+// optional zones (wind, rotor fault) are see-through boxes along it.
 
 import * as THREE from "three";
 import { makeFatLine } from "./fat_line.js";
@@ -64,6 +65,32 @@ export function validateFlightPaths(paths) {
       !["east_m", "north_m", "up_m"].every((key) => Number.isFinite(point?.[key])))) {
       throw new Error("[DroneViewer] flightPaths[].points must be [{east_m, north_m, up_m, ...}].");
     }
+    if (path.zones !== undefined) validateZones(path.zones);
+  }
+}
+
+// flightPaths[].zones: [{label?, corners: 8 x [east_m, north_m, up_m], wind?: {towards_deg,
+// speed_m_s}, fault?: {rotors, scale}}], wind or fault (or both) on each.
+function validateZones(zones) {
+  if (!Array.isArray(zones)) {
+    throw new Error("[DroneViewer] flightPaths[].zones must be an array.");
+  }
+  for (const zone of zones) {
+    if (!Array.isArray(zone?.corners) || zone.corners.length !== 8 || zone.corners.some((corner) =>
+      !Array.isArray(corner) || corner.length !== 3 || !corner.every(Number.isFinite))) {
+      throw new Error("[DroneViewer] flightPaths[].zones[].corners must be 8 [east_m, north_m, up_m] points.");
+    }
+    if (zone.wind === undefined && zone.fault === undefined) {
+      throw new Error("[DroneViewer] flightPaths[].zones[] needs wind or fault.");
+    }
+    if (zone.wind !== undefined && !(Number.isFinite(zone.wind?.towards_deg) && Number.isFinite(zone.wind?.speed_m_s))) {
+      throw new Error("[DroneViewer] flightPaths[].zones[].wind must be {towards_deg, speed_m_s}.");
+    }
+    if (zone.fault !== undefined && !(Array.isArray(zone.fault?.rotors)
+      && zone.fault.rotors.every((rotor) => Number.isInteger(rotor) && rotor >= 0)
+      && Number.isFinite(zone.fault.scale))) {
+      throw new Error("[DroneViewer] flightPaths[].zones[].fault must be {rotors: [index, ...], scale}.");
+    }
   }
 }
 
@@ -118,6 +145,80 @@ function addFrictionBands(group, samples) {
   }
 }
 
+// Event zones along a flight path (flightPaths[].zones): a see-through box
+// with its 12 edges, cyan where the wind blows, red where rotors fail (red
+// wins when both). corners 0-3 are the bottom face in order (a-left, a-right,
+// b-right, b-left), 4-7 the top face above them. Wind gets a horizontal arrow
+// through the box centre, pointing where it blows towards.
+const WIND_COLOR = 0x26c6da;
+const FAULT_COLOR = 0xe53935;
+const ZONE_FACES = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]];
+const ZONE_EDGES = [0, 1, 2, 3].flatMap((i) => [[i, (i + 1) % 4], [4 + i, 4 + (i + 1) % 4], [i, i + 4]]);
+
+// A short text on a rounded tag that faces the camera (the zone's wind / fault).
+function zoneLabel(text, color) {
+  const font = "bold 30px sans-serif";
+  const canvas = document.createElement("canvas");
+  const measure = canvas.getContext("2d");
+  measure.font = font;
+  canvas.width = Math.ceil(measure.measureText(text).width) + 40;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");  // resizing reset the context
+  context.fillStyle = color;
+  context.beginPath();
+  context.roundRect(4, 8, canvas.width - 8, 48, 24);
+  context.fill();
+  context.fillStyle = "#ffffff";
+  context.font = font;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, canvas.width / 2, 33);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: false }));
+  sprite.scale.set(0.8 * canvas.width / 64, 0.8, 1);
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
+function addZones(group, zones) {
+  for (const zone of zones) {
+    const corners = zone.corners.map(([east, north, up]) => new THREE.Vector3(east, up, -north));
+    const color = zone.fault ? FAULT_COLOR : WIND_COLOR;
+    const box = new THREE.BufferGeometry().setFromPoints(
+      ZONE_FACES.flatMap(([a, b, c, d]) => [a, b, c, a, c, d].map((index) => corners[index])));
+    const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false,
+    }));
+    fill.renderOrder = 3;
+    group.add(fill);
+    const edges = new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints(ZONE_EDGES.flat().map((index) => corners[index])),
+      new THREE.LineBasicMaterial({ color }));
+    edges.renderOrder = 4;
+    group.add(edges);
+
+    const centre = corners.reduce((sum, corner) => sum.add(corner), new THREE.Vector3()).divideScalar(8);
+    const top = Math.max(...corners.map((corner) => corner.y));
+    const texts = [];
+    if (zone.wind) {
+      // Urban convention: east 0, counter-clockwise (north 90) -> scene (cos, 0, -sin).
+      const towards = THREE.MathUtils.degToRad(zone.wind.towards_deg);
+      const direction = new THREE.Vector3(Math.cos(towards), 0, -Math.sin(towards));
+      // The box's horizontal length: from the middle of its a end to the middle of its b end.
+      const along = corners[2].clone().add(corners[3]).sub(corners[0]).sub(corners[1]).multiplyScalar(0.5).setY(0);
+      const length = Math.max(1, Math.min(4, along.length()));
+      const arrow = new THREE.ArrowHelper(direction, centre.clone().addScaledVector(direction, -length / 2),
+        length, WIND_COLOR, Math.min(1, length * 0.3), Math.min(0.6, length * 0.2));
+      arrow.traverse((part) => { part.renderOrder = 6; });
+      group.add(arrow);
+      texts.push(`風 ${Number(zone.wind.speed_m_s.toFixed(1))}m/s`);
+    }
+    if (zone.fault) texts.push(`故障 ${zone.fault.rotors.map((rotor) => `R${rotor}`).join(",")}`);
+    const label = zoneLabel(texts.join(" "), zone.fault ? "#e53935" : "#26c6da");
+    label.position.set(centre.x, top + 0.8, centre.z);
+    group.add(label);
+  }
+}
+
 function addRoutePaths(group, routes) {
   for (const route of routes) {
     const samples = [...route.points];
@@ -147,6 +248,7 @@ export function buildFlightPathGroup(paths, routes = []) {
   addRoutePaths(group, routes);
   for (const path of paths) {
     const points = path.points;
+    if (path.zones) addZones(group, path.zones);
     if (points.length > 1) {
       const line = makeFatLine(points.map(toScene), 0x2e7dd7, WIDTH_PX);
       line.renderOrder = 5;

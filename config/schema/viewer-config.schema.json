@@ -155,6 +155,46 @@
                 "again": { "type": "boolean" }
               }
             }
+          },
+          "zones": {
+            "type": "array",
+            "description": "Where wind blows or rotors fail along the path: see-through boxes (cyan wind, red fault). corners are 8 Urban ENU points [east_m, north_m, up_m]: 0-3 the bottom face in order (a-left, a-right, b-right, b-left), 4-7 the top face above them.",
+            "items": {
+              "type": "object",
+              "required": ["corners"],
+              "anyOf": [{ "required": ["wind"] }, { "required": ["fault"] }],
+              "properties": {
+                "label": { "type": "string" },
+                "corners": {
+                  "type": "array",
+                  "minItems": 8,
+                  "maxItems": 8,
+                  "items": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": { "type": "number" }
+                  }
+                },
+                "wind": {
+                  "type": "object",
+                  "required": ["towards_deg", "speed_m_s"],
+                  "description": "towards_deg: where the wind blows towards, east 0, counter-clockwise (north 90).",
+                  "properties": {
+                    "towards_deg": { "type": "number" },
+                    "speed_m_s": { "type": "number", "minimum": 0 }
+                  }
+                },
+                "fault": {
+                  "type": "object",
+                  "required": ["rotors", "scale"],
+                  "properties": {
+                    "rotors": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+                    "scale": { "type": "number", "minimum": 0 }
+                  }
+                }
+              }
+            }
           }
         }
       }
