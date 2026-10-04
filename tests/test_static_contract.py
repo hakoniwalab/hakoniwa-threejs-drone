@@ -321,6 +321,9 @@ class StaticViewerContractTest(unittest.TestCase):
         # A route's road friction colours its line (dry, wet, snow, ice).
         self.assertIn("road_friction", route["properties"])
         self.assertIn("frictionColor(samples[start].road_friction)", overlay)
+        # ... and fills the band (road_width_m wide) where it holds.
+        self.assertIn("road_width_m", route["properties"])
+        self.assertIn("addFrictionBands(group, samples)", overlay)
 
     def test_actual_tracks_are_recorded_and_shown_on_request(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")

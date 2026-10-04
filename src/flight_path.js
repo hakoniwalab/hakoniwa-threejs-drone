@@ -67,9 +67,10 @@ export function validateFlightPaths(paths) {
   }
 }
 
-// routePaths: [{route, vehicles, closed, points: [{east_m, north_m, up_m, road_friction?}]}],
+// routePaths: [{route, vehicles, closed, points: [{east_m, north_m, up_m, road_friction?, road_width_m?}]}],
 // the points dense enough to follow the ground (bridges, slopes) between
-// waypoints; road_friction is the road's friction from that point on.
+// waypoints; road_friction is the road's friction from that point on, in a
+// band road_width_m wide (drawn see-through in the friction's colour).
 export function validateRoutePaths(routes) {
   if (!Array.isArray(routes)) {
     throw new Error("[DroneViewer] routePaths must be an array.");
@@ -82,11 +83,47 @@ export function validateRoutePaths(routes) {
   }
 }
 
+// Where a route's road friction holds: a see-through band road_width_m wide
+// along the samples that carry road_friction, in its colour (one mesh per
+// colour), a little under the line.
+function addFrictionBands(group, samples) {
+  const quads = new Map();  // colour -> positions
+  for (let index = 0; index + 1 < samples.length; index += 1) {
+    const point = samples[index];
+    if (!Number.isFinite(point.road_friction) || !Number.isFinite(point.road_width_m)) continue;
+    const a = toScene(point);
+    const b = toScene(samples[index + 1]);
+    const along = new THREE.Vector3(b.x - a.x, 0, b.z - a.z);
+    if (along.lengthSq() < 1e-9) continue;
+    const side = new THREE.Vector3(-along.z, 0, along.x).normalize().multiplyScalar(point.road_width_m / 2);
+    const color = frictionColor(point.road_friction);
+    const positions = quads.get(color) ?? [];
+    const ya = a.y - 0.2;
+    const yb = b.y - 0.2;
+    const corners = [
+      [a.x + side.x, ya, a.z + side.z], [a.x - side.x, ya, a.z - side.z],
+      [b.x + side.x, yb, b.z + side.z], [b.x - side.x, yb, b.z - side.z],
+    ];
+    for (const corner of [0, 1, 2, 1, 3, 2]) positions.push(...corners[corner]);
+    quads.set(color, positions);
+  }
+  for (const [color, positions] of quads) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false,
+    }));
+    mesh.renderOrder = 4;
+    group.add(mesh);
+  }
+}
+
 function addRoutePaths(group, routes) {
   for (const route of routes) {
     const samples = [...route.points];
     if (route.closed && samples.length > 2) samples.push(samples[0]);
     if (samples.length < 2) continue;
+    addFrictionBands(group, samples);
     // One line per run of the same colour; a run ends on the next run's
     // first point so the line has no gaps.
     let start = 0;
