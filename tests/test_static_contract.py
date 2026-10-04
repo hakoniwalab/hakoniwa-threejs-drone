@@ -318,6 +318,9 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("hasPlannedPaths()", viewer)
         self.assertIn("setPlannedPathsVisible(enabled)", viewer)
         self.assertIn("validateRoutePaths(config.routePaths)", viewer)
+        # A route's road friction colours its line (dry, wet, snow, ice).
+        self.assertIn("road_friction", route["properties"])
+        self.assertIn("frictionColor(samples[start].road_friction)", overlay)
 
     def test_actual_tracks_are_recorded_and_shown_on_request(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
