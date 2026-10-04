@@ -6,7 +6,7 @@ import { FaultInjectionState } from "../fault_injection/fault_injection_state.js
 import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
 import { buildFlightPathGroup, validateFlightPaths, validateRoutePaths } from "../flight_path.js";
-import { TrailRecorder } from "../trail.js";
+import { pinnedTrailsStorageKey, TrailRecorder } from "../trail.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -470,7 +470,14 @@ export class DroneViewer {
 
   ensureTrails() {
     if (!this.trails) {
-      this.trails = new TrailRecorder();
+      const loc = typeof window !== "undefined" ? window.location : null;
+      this.trails = new TrailRecorder({ storageKey: pinnedTrailsStorageKey(loc?.search ?? "", loc?.pathname ?? "/") });
+      // Tracks pinned before a page reload or a simulation restart.
+      try {
+        this.trails.restorePinned();
+      } catch (e) {
+        console.warn("[DroneViewer] restoring pinned trails failed:", e);
+      }
       addSceneDecoration(this.trails.group);
     }
     return this.trails;
@@ -479,6 +486,16 @@ export class DroneViewer {
   /** Forget the tracks recorded so far. */
   clearTrails() {
     this.trails?.clear();
+  }
+
+  /** Keep the current tracks (green, also across reloads) and record new ones; returns how many were kept. */
+  pinTrails() {
+    return this.ensureTrails().pin();
+  }
+
+  /** Remove the kept tracks. */
+  clearPinnedTrails() {
+    this.ensureTrails().clearPinned();
   }
 
   getNightMode() {
