@@ -324,6 +324,17 @@ class StaticViewerContractTest(unittest.TestCase):
         # ... and fills the band (road_width_m wide) where it holds.
         self.assertIn("road_width_m", route["properties"])
         self.assertIn("addFrictionBands(group, samples)", overlay)
+        # A flight path's wind / rotor-fault zones: see-through boxes of 8 ENU corners.
+        zone = schema["properties"]["flightPaths"]["items"]["properties"]["zones"]["items"]
+        self.assertEqual(zone["required"], ["corners"])
+        self.assertEqual(zone["properties"]["corners"]["minItems"], 8)
+        self.assertEqual(zone["properties"]["wind"]["required"], ["towards_deg", "speed_m_s"])
+        self.assertEqual(zone["properties"]["fault"]["required"], ["rotors", "scale"])
+        self.assertIn("if (path.zones !== undefined) validateZones(path.zones);", overlay)
+        self.assertIn("if (path.zones) addZones(group, path.zones);", overlay)
+        self.assertIn("new THREE.Vector3(east, up, -north)", overlay)
+        self.assertIn("const color = zone.fault ? FAULT_COLOR : WIND_COLOR;", overlay)
+        self.assertIn("new THREE.Vector3(Math.cos(towards), 0, -Math.sin(towards))", overlay)
 
     def test_actual_tracks_are_recorded_and_shown_on_request(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
