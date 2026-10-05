@@ -9,6 +9,29 @@ function getViewerConfigPathFromSearch(search, defaultPath = DEFAULT_VIEWER_CONF
   return params.get("viewerConfigPath") || defaultPath;
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
+
+// A viewer page opened from another machine (http://<simulation-host>:<port>/...)
+// must reach the WebBridge on that host, not on the browser's own loopback.
+// Only a loopback wsUri on a non-loopback page is rewritten; everything else
+// (and an explicit ?wsUri=) is kept as is.
+export function wsUriForPage(wsUri, pageUrl) {
+  if (!wsUri || !pageUrl) return wsUri;
+  let ws;
+  let page;
+  try {
+    ws = new URL(wsUri);
+    page = new URL(pageUrl);
+  } catch {
+    return wsUri;
+  }
+  if (!LOOPBACK_HOSTS.has(ws.hostname) || LOOPBACK_HOSTS.has(page.hostname) || !page.hostname) {
+    return wsUri;
+  }
+  ws.hostname = page.hostname;
+  return ws.toString().replace(/\/$/, wsUri.endsWith("/") ? "/" : "");
+}
+
 function applyQueryOverrides(cfg, search, pageUrl) {
   const params = new URLSearchParams(search ?? "");
   const overridden = JSON.parse(JSON.stringify(cfg));
@@ -17,6 +40,8 @@ function applyQueryOverrides(cfg, search, pageUrl) {
   if (wsUri) {
     overridden.pdu = overridden.pdu ?? {};
     overridden.pdu.wsUri = wsUri;
+  } else if (overridden.pdu?.wsUri) {
+    overridden.pdu.wsUri = wsUriForPage(overridden.pdu.wsUri, pageUrl);
   }
 
   const wireVersion = params.get("wireVersion");
