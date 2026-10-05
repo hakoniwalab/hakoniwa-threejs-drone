@@ -54,7 +54,11 @@ export class VehicleStateSource {
       if (this.interpolation) {
         let interpolator = this.interpolators.get(name);
         if (!interpolator) {
-          interpolator = new PoseInterpolator({ delayMsec: this.interpolation.delayMsec });
+          interpolator = new PoseInterpolator({
+            delayMsec: this.interpolation.delayMsec,
+            periodMsec: this.interpolation.periodMsec,
+            snapDistanceM: this.interpolation.snapDistanceM,
+          });
           this.interpolators.set(name, interpolator);
         }
         interpolator.push(transforms[index], performance.now());

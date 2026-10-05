@@ -28,7 +28,12 @@ const fresh = new PoseInterpolator();
 fresh.push(pose(1), 0);
 const repeated = fresh.push(pose(1), 16);
 const half = slerpQuaternion({ x: 0, y: 0, z: 0, w: 1 }, { x: 0, y: 0, z: 1, w: 0 }, 0.5);
+const snap = new PoseInterpolator({ periodMsec: 40 });
+snap.push(pose(0), 0);
+snap.push(pose(5), 40);
+const teleported = snap.sample(60).translation.x;
 console.log(JSON.stringify({
+  teleported,
   minStep: Math.min(...steps), maxStep: Math.max(...steps), repeatedPushIgnored: repeated === false,
   halfTurnZ: half.z, halfTurnW: half.w,
 }));

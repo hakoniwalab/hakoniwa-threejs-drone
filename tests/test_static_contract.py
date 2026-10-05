@@ -169,6 +169,7 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertGreater(result["minStep"], 0.08)
         self.assertLess(result["maxStep"], 0.20)
         self.assertTrue(result["repeatedPushIgnored"])
+        self.assertEqual(result["teleported"], 5)
         self.assertAlmostEqual(result["halfTurnZ"], 0.7071, places=3)
         self.assertAlmostEqual(result["halfTurnW"], 0.7071, places=3)
 
