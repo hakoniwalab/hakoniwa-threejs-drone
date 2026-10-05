@@ -170,6 +170,26 @@ class StaticViewerContractTest(unittest.TestCase):
             "ws://192.168.1.20:28866", "ws://127.0.0.1:28866", "ws://localhost:28866", "ws://10.0.0.5:28866",
         ])
 
+    def test_vehicle_pose_interpolation_is_opt_in(self) -> None:
+        source = (ROOT / "src/state_source/vehicle_state_source.js").read_text(encoding="utf-8")
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("interpolation.enabled === true ? interpolation : null", source)
+        self.assertIn("if (this.vehicleStateSource?.interpolation) this.applyVehicleStates();", viewer)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_pose_interpolation_moves_an_uneven_stream_evenly(self) -> None:
+        """8 m/s at 40 ms +-10 ms: about 13 cm per 60 Hz frame, never 0 or a 32 cm jump."""
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/pose_interpolator_check.mjs")],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        result = json.loads(output)
+        self.assertGreater(result["minStep"], 0.08)
+        self.assertLess(result["maxStep"], 0.20)
+        self.assertTrue(result["repeatedPushIgnored"])
+        self.assertAlmostEqual(result["halfTurnZ"], 0.7071, places=3)
+        self.assertAlmostEqual(result["halfTurnW"], 0.7071, places=3)
+
     def test_fleet_pdu_polling_is_single_flight_and_throttled(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         source = (ROOT / "src/state_source/fleet_state_source.js").read_text(encoding="utf-8")
