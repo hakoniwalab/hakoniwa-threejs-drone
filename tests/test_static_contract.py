@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -149,6 +151,24 @@ class StaticViewerContractTest(unittest.TestCase):
         ):
             with self.subTest(path=relative):
                 self.assertTrue((ROOT / relative).is_file())
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_remote_page_reaches_the_bridge_on_its_own_host(self) -> None:
+        """A loopback wsUri follows the page host when the viewer is opened from another machine."""
+        script = (
+            "import { wsUriForPage } from " + json.dumps((ROOT / "src/viewer_config_loader.js").as_uri()) + ";"
+            "console.log(JSON.stringify(["
+            "wsUriForPage('ws://127.0.0.1:28866', 'http://192.168.1.20:28100/v/index.html'),"
+            "wsUriForPage('ws://127.0.0.1:28866', 'http://127.0.0.1:28100/v/index.html'),"
+            "wsUriForPage('ws://localhost:28866', 'http://localhost:28100/v'),"
+            "wsUriForPage('ws://10.0.0.5:28866', 'http://192.168.1.20:28100/v')]));"
+        )
+        output = subprocess.run(
+            ["node", "--input-type=module", "-e", script], check=True, capture_output=True, text=True,
+        ).stdout
+        self.assertEqual(json.loads(output), [
+            "ws://192.168.1.20:28866", "ws://127.0.0.1:28866", "ws://localhost:28866", "ws://10.0.0.5:28866",
+        ])
 
     def test_fleet_pdu_polling_is_single_flight_and_throttled(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
