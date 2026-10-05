@@ -59,11 +59,17 @@ export function interpolateTransform(a, b, s) {
 export class PoseInterpolator {
   // delayMsec: how far behind the newest pose to draw. When omitted, 1.5 x the
   // measured arrival period (about one pose of margin for jitter).
-  constructor({ delayMsec = null, gapResetMsec = 250 } = {}) {
+  // periodMsec: the publisher's step when known (fixed at configure); it seeds
+  // the period estimate, which still follows the measured arrivals.
+  // snapDistanceM: a jump longer than this (reset, respawn) is placed at once
+  // instead of being slid over.
+  constructor({ delayMsec = null, periodMsec = null, snapDistanceM = 2.0, gapResetMsec = 250 } = {}) {
     this.delayMsec = Number.isFinite(delayMsec) ? delayMsec : null;
+    this.initialPeriodMsec = Number.isFinite(periodMsec) && periodMsec > 0 ? periodMsec : null;
+    this.snapDistanceM = Number.isFinite(snapDistanceM) ? snapDistanceM : Infinity;
     this.gapResetMsec = gapResetMsec;
     this.samples = [];
-    this.periodMsec = null;
+    this.periodMsec = this.initialPeriodMsec;
     this.lastArrivalMsec = null;
   }
 
@@ -72,7 +78,12 @@ export class PoseInterpolator {
     if (last && sameTransform(last.transform, transform)) return false;
     const gap = this.lastArrivalMsec === null ? Infinity : nowMsec - this.lastArrivalMsec;
     let displayMsec = nowMsec;
-    if (last && gap < this.gapResetMsec) {
+    const jump = last ? Math.hypot(
+      transform.translation.x - last.transform.translation.x,
+      transform.translation.y - last.transform.translation.y,
+      transform.translation.z - last.transform.translation.z,
+    ) : 0;
+    if (last && gap < this.gapResetMsec && jump <= this.snapDistanceM) {
       const measured = Math.min(Math.max(gap, 1), this.gapResetMsec);
       this.periodMsec = this.periodMsec === null ? measured : 0.9 * this.periodMsec + 0.1 * measured;
       // Even spacing on the smoothed clock, pulled slowly toward arrival time.
@@ -80,7 +91,7 @@ export class PoseInterpolator {
       displayMsec = predicted + 0.1 * (nowMsec - predicted);
       displayMsec = Math.max(displayMsec, last.displayMsec + 0.5 * this.periodMsec);
     } else {
-      // First pose, or the stream paused: restart the clock (no stale tween).
+      // First pose, a paused stream or a teleport: restart (no tween).
       this.samples = [];
     }
     this.lastArrivalMsec = nowMsec;
