@@ -235,6 +235,8 @@ export class DroneViewer {
     if (!this.syncHookInstalled) {
       setBeforeDronesUpdateHook((dt) => {
         this.recordTrails();
+        // Interpolated vehicles move every frame; PDU reads stay throttled.
+        if (this.vehicleStateSource?.interpolation) this.applyVehicleStates();
         const intervalMsec = this.viewerConfig?.ui?.statePanelIntervalMsec ?? 100;
         this.syncElapsedMsec += Math.max(0, Number(dt) || 0) * 1000;
         if (this.syncElapsedMsec < intervalMsec || this.syncInFlight) {
@@ -324,6 +326,14 @@ export class DroneViewer {
     }
   }
 
+  applyVehicleStates() {
+    if (!this.vehicleStateSource) return;
+    for (const vehicle of getVehicles()) {
+      const state = this.vehicleStateSource.getState(vehicle.vehicleId);
+      if (state) vehicle.applyState(state);
+    }
+  }
+
   async syncDroneStates() {
     if (!this.stateSource && !this.vehicleStateSource) return;
     if (this.syncInFlight) {
@@ -343,10 +353,7 @@ export class DroneViewer {
       }
       if (this.vehicleStateSource) {
         await this.vehicleStateSource.update();
-        for (const vehicle of getVehicles()) {
-          const state = this.vehicleStateSource.getState(vehicle.vehicleId);
-          if (state) vehicle.applyState(state);
-        }
+        this.applyVehicleStates();
       }
     })();
     try {
