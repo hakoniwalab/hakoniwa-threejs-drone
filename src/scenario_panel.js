@@ -1,7 +1,8 @@
 // The scenario panel (viewerConfig.scenarioPanel): a start button that writes
 // a command to the simulation and a list of the events it reports. With
 // variants ([{id, label}]) a selector picks one and the start command
-// carries it ("start:<id>:<nonce>").
+// carries it ("start:<id>:<nonce>"). With hudVehicle, a HUD over the main
+// view shows that vehicle's speed and the ACC's state (its "acc" events).
 //
 // Both PDUs are std_msgs/String (128 bytes). The command is a word ("start");
 // the events come one line at a time, "seq|hako_s|scenario_s|kind|name|state",

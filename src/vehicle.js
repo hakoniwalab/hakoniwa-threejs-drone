@@ -206,7 +206,8 @@ export class Vehicle {
   }
 
   updateBrakeLamps(position) {
-    if (this.brakeLamps.length === 0) return;
+    // The motion (speed, deceleration) is kept for every vehicle (the viewer
+    // shows speeds); only vehicles with brake lamps light them.
     const now = performance.now() / 1000;
     if (!this.motion) {
       this.motion = { time: now, position: position.clone(), speed: null, deceleration: 0, braking: false };
@@ -223,6 +224,7 @@ export class Vehicle {
     this.motion.position.copy(position);
     const threshold = this.motion.braking ? BRAKE_OFF_MPS2 : BRAKE_ON_MPS2;
     const braking = this.motion.deceleration > threshold || speed < BRAKE_STANDSTILL_MPS;
+    if (this.brakeLamps.length === 0) return;
     if (braking === this.motion.braking && this.motion.speed !== null && this.brakeLampsSet) return;
     this.motion.braking = braking;
     this.brakeLampsSet = true;

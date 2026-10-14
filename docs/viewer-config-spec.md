@@ -158,6 +158,7 @@ v1.0 では以下を外部仕様にします。
 - `robotName` (`string`, 必須): 指令・出来事の PDU を持つ robot
 - `commandPdu` (`string`, 必須): `std_msgs/String`。スタートボタンが `start` を書く（Web bridge に WebSocket → 共有メモリの経路が要る）
 - `variants` (`[{id, label}]`, 任意): スタートの前に選ぶ実行の種類（例：覚醒・眠気）。選ぶとスタートの指令が `start:<id>:<nonce>` になる。`defaultVariant` (`string`, 任意) で最初に選ぶもの
+- `hudVehicle` (`string`, 任意): メインの画面の下に、この車両の速度（km/h）と ACC の状態（`kind` が `acc` の出来事：`follow`、`cruise`、`hold`、`canceled`）を大きく出す
 - `eventsPdu` (`string`, 必須): `std_msgs/String`。シミュレーション側が出来事を1行ずつ書く：`seq|箱庭時刻[s]|シナリオ時刻[s]|kind|name|state`。`seq` が変われば新しい行、減ればやり直し。`kind` が `status` の行は状態（`waiting`、`running`、`completed`、Drone Show の制御と同じ名前）
 
 ドローンのいない scene では、Drone の選択・状態・故障注入・風の欄を出さない。
