@@ -50,9 +50,21 @@
       width: 100%;
     }
 
+    #scenario-hud {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5;
+      padding: 6px 18px; border-radius: 10px; background: rgba(0, 0, 0, 0.45); color: #fff;
+      text-align: center; font-family: -apple-system, "Hiragino Sans", sans-serif; pointer-events: none;
+    }
+    #hud-speed { font-size: 40px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    #hud-speed span { font-size: 16px; font-weight: 400; }
+    #hud-acc { font-size: 15px; }
+    #hud-acc.accelerating { color: #ffb74d; font-weight: 700; }
+    #hud-acc.canceled { color: #ef9a9a; }
+
     #viewer-container {
       flex: 1;
       background: #000;
+      position: relative;
     }
 
     #three-root {
@@ -300,6 +312,7 @@
 
     <!-- 右：Three.js -->
     <div id="viewer-container">
+      <div id="scenario-hud" hidden><div id="hud-speed">0 <span>km/h</span></div><div id="hud-acc"></div></div>
       <div id="three-root"></div>
     </div>
   </div>
@@ -736,6 +749,30 @@
       }
 
       const scenarioSpeeds = document.getElementById('scenario-speeds');
+      // HUD over the main view (scenarioPanel.hudVehicle): its speed and the
+      // ACC's state from the events, so a change of speed is seen and felt.
+      const hud = document.getElementById('scenario-hud');
+      const hudSpeed = document.getElementById('hud-speed');
+      const hudAcc = document.getElementById('hud-acc');
+      const ACC_LABEL = { follow: "ACC 追従", cruise: "ACC 加速／設定速度", hold: "ACC 速度保持",
+                          canceled: "ACC 解除（運転者の操作）" };
+      let hudPrevious = null;
+      function renderHud() {
+        const name = loadedViewerConfig?.scenarioPanel?.hudVehicle;
+        if (!name) return;
+        const vehicle = viewer.getVehicles().find((v) => v.vehicleId === name);
+        if (!vehicle?.motion?.speed && vehicle?.motion?.speed !== 0) return;
+        hud.hidden = false;
+        const kmh = vehicle.motion.speed * 3.6;
+        hudSpeed.innerHTML = `${kmh.toFixed(0)} <span>km/h</span>`;
+        const acc = [...(scenarioPanel?.events ?? [])].reverse().find((e) => e.kind === "acc");
+        const state = acc?.state ?? "follow";
+        const accelerating = state === "cruise" && hudPrevious !== null && kmh > hudPrevious + 0.05;
+        hudAcc.textContent = (ACC_LABEL[state] ?? `ACC ${state}`) + (accelerating ? "　▲ 加速中" : "");
+        hudAcc.className = accelerating ? "accelerating" : (state === "canceled" ? "canceled" : "");
+        hudPrevious = kmh;
+      }
+
       function renderVehicleSpeeds() {
         const rows = viewer.getVehicles()
           .filter((vehicle) => vehicle.motion?.speed != null)
@@ -772,6 +809,7 @@
           if (scenarioPanel.poll()) renderScenarioEvents();
         }, 20);
         setInterval(renderVehicleSpeeds, 250);
+        setInterval(renderHud, 200);
       }
 
       connectBtn.addEventListener('click', async () => {
