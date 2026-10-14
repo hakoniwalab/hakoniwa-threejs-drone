@@ -12,6 +12,29 @@
 
 const MAX_SAMPLES = 8;
 
+// One clock for all the vehicles whose poses carry stamps of the same time
+// base (the simulation): the offset from stamp to display time and the delay
+// behind it are shared. Kept per vehicle, they differed by a few ms between
+// vehicles, which at 80 km/h moved one against another by centimetres (a
+// rider jittering in its car's cabin camera).
+export class StampClock {
+  constructor() {
+    this.offsetMsec = null;
+    this.delayMsec = 0;
+  }
+
+  observe(nowMsec, stampMsec, resetMsec) {
+    const offset = nowMsec - stampMsec;
+    if (this.offsetMsec === null || Math.abs(offset - this.offsetMsec) > resetMsec) this.offsetMsec = offset;
+    else this.offsetMsec = 0.995 * this.offsetMsec + 0.005 * offset;
+  }
+
+  wantDelay(delayMsec) {
+    // The largest any vehicle needs, easing down slowly.
+    this.delayMsec = Math.max(delayMsec, this.delayMsec * 0.999);
+  }
+}
+
 function sameTransform(a, b) {
   if (!a || !b) return false;
   const ta = a.translation ?? {};
@@ -68,7 +91,8 @@ export class PoseInterpolator {
   // the period estimate, which still follows the measured arrivals.
   // snapDistanceM: a jump longer than this (reset, respawn) is placed at once
   // instead of being slid over.
-  constructor({ delayMsec = null, periodMsec = null, snapDistanceM = 2.0, gapResetMsec = 250 } = {}) {
+  constructor({ delayMsec = null, periodMsec = null, snapDistanceM = 2.0, gapResetMsec = 250, clock = null } = {}) {
+    this.clock = clock;   // a shared StampClock for stamped poses, else this vehicle's own
     this.delayMsec = Number.isFinite(delayMsec) ? delayMsec : null;
     this.initialPeriodMsec = Number.isFinite(periodMsec) && periodMsec > 0 ? periodMsec : null;
     this.snapDistanceM = Number.isFinite(snapDistanceM) ? snapDistanceM : Infinity;
@@ -116,6 +140,7 @@ export class PoseInterpolator {
     const step = last?.stampMsec != null ? stampMsec - last.stampMsec : null;
     if (step !== null && step <= 0 && jump === 0) return false;
     const offset = nowMsec - stampMsec;
+    if (this.clock) this.clock.observe(nowMsec, stampMsec, this.gapResetMsec);
     if (step === null || step <= 0 || step > this.gapResetMsec || jump > this.snapDistanceM
         || this.stampOffsetMsec === null || Math.abs(offset - this.stampOffsetMsec) > this.gapResetMsec) {
       // First pose, a reset (time went back), a paused stream or a teleport.
@@ -137,9 +162,16 @@ export class PoseInterpolator {
   }
 
   sample(nowMsec) {
-    const samples = this.samples;
+    let samples = this.samples;
     if (samples.length === 0) return null;
-    const delay = this.delayMsec ?? 1.5 * Math.max(this.periodMsec ?? 0, this.arrivalPeriodMsec ?? 0);
+    let delay = this.delayMsec ?? 1.5 * Math.max(this.periodMsec ?? 0, this.arrivalPeriodMsec ?? 0);
+    if (this.clock && this.clock.offsetMsec !== null && samples[0].stampMsec != null) {
+      // Shared clock: the same display time for every vehicle.
+      this.clock.wantDelay(delay);
+      delay = this.clock.delayMsec;
+      const offset = this.clock.offsetMsec;
+      samples = samples.map((s) => ({ ...s, displayMsec: s.stampMsec + offset }));
+    }
     const t = nowMsec - delay;
     if (samples.length === 1 || t <= samples[0].displayMsec) return samples[0].transform;
     for (let index = samples.length - 1; index > 0; index -= 1) {
