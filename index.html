@@ -203,6 +203,7 @@
       <div class="prop-box" id="scenario-box" hidden>
         <h4>シナリオ</h4>
         <div class="fault-actions">
+          <select id="scenario-variant" hidden></select>
           <button id="scenario-start-btn" type="button" disabled>スタート</button>
           <span id="scenario-status" class="fault-status">接続中</span>
         </div>
@@ -701,6 +702,7 @@
       const scenarioEvents = document.getElementById('scenario-events');
       const scenarioNight = document.getElementById('scenario-night');
       const scenarioRoute = document.getElementById('scenario-route');
+      const scenarioVariant = document.getElementById('scenario-variant');
       let scenarioPanel = null;
       const SCENARIO_STATUS = { waiting: "スタート待ち", running: "実行中", completed: "終了" };
 
@@ -710,9 +712,22 @@
         scenarioRoute.disabled = !viewer.hasPlannedPaths();
         scenarioNight.addEventListener('change', () => viewer.setNightMode(scenarioNight.checked));
         scenarioRoute.addEventListener('change', () => viewer.setPlannedPathsVisible(scenarioRoute.checked));
+        const variants = config.scenarioPanel.variants ?? [];
+        if (variants.length > 0) {
+          for (const variant of variants) {
+            const option = document.createElement('option');
+            option.value = variant.id;
+            option.textContent = variant.label ?? variant.id;
+            scenarioVariant.appendChild(option);
+          }
+          scenarioVariant.value = config.scenarioPanel.defaultVariant ?? variants[0].id;
+          scenarioVariant.hidden = false;
+        }
         scenarioStartBtn.addEventListener('click', async () => {
           scenarioStartBtn.disabled = true;
-          const ok = await scenarioPanel?.sendCommand("start");
+          // "start" or "start:<variant>", plus a nonce so a second start is a new command.
+          const variant = scenarioVariant.hidden ? "" : `:${scenarioVariant.value}`;
+          const ok = await scenarioPanel?.sendCommand(`start${variant}:${Date.now()}`);
           if (!ok) {
             scenarioStatus.textContent = "送信できませんでした";
             scenarioStartBtn.disabled = false;
@@ -733,6 +748,7 @@
         const status = scenarioPanel.status();
         scenarioStatus.textContent = SCENARIO_STATUS[status] ?? status;
         scenarioStartBtn.disabled = status !== "waiting";
+        scenarioVariant.disabled = status !== "waiting";
         scenarioEvents.innerHTML = "";
         for (const event of scenarioPanel.events) {
           if (event.kind === "status") continue;

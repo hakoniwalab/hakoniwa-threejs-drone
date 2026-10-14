@@ -1,5 +1,7 @@
 // The scenario panel (viewerConfig.scenarioPanel): a start button that writes
-// a command to the simulation and a list of the events it reports.
+// a command to the simulation and a list of the events it reports. With
+// variants ([{id, label}]) a selector picks one and the start command
+// carries it ("start:<id>:<nonce>").
 //
 // Both PDUs are std_msgs/String (128 bytes). The command is a word ("start");
 // the events come one line at a time, "seq|hako_s|scenario_s|kind|name|state",
@@ -14,6 +16,10 @@ export function validateScenarioPanel(panel) {
     if (typeof panel[key] !== "string" || panel[key].length === 0) {
       throw new Error(`[DroneViewer] scenarioPanel.${key} must be a non-empty string.`);
     }
+  }
+  if (panel.variants != null && (!Array.isArray(panel.variants)
+      || panel.variants.some((v) => typeof v?.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(v.id)))) {
+    throw new Error("[DroneViewer] scenarioPanel.variants must be [{id, label}] with ids of letters, digits, - and _.");
   }
 }
 
