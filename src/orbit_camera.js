@@ -162,6 +162,16 @@ export class OrbitCamera {
     }
     this._tmpDir.copy(this._followDir).multiplyScalar(this.followDistance);
 
+    if (yaw !== null) {
+      // A chase camera rides with the target: no lag, so the target does not
+      // move inside the view (lagging, it jumped back and forth whenever the
+      // target's poses arrived unevenly).
+      currentTarget.copy(dronePos);
+      this.camera.position.copy(currentTarget).add(this._tmpDir);
+      this.camera.lookAt(currentTarget);
+      return;
+    }
+
     // 「target + 指定距離のオフセット」を目標位置とする
     this._tmpDesiredPos.copy(currentTarget).add(this._tmpDir);
 

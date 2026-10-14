@@ -2,6 +2,12 @@ import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_JointState } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/sensor_msgs/pdu_conv_JointState.js";
 import { pduToJs_MultiDOFJointState } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/sensor_msgs/pdu_conv_MultiDOFJointState.js";
 import { validateCompactPdudef, loadPdutypeTable, collectChannelsByPdutype } from "./compact_pdudef_loader.js";
+import { PoseInterpolator } from "./pose_interpolator.js";
+
+function frameTimeMsec() {
+  const frame = typeof document !== "undefined" ? document.timeline?.currentTime : null;
+  return Number.isFinite(frame) ? frame : performance.now();
+}
 
 export class VehicleStateSource {
   constructor(config = {}) {
@@ -11,6 +17,12 @@ export class VehicleStateSource {
     this.states = new Map();
     this.declared = false;
     this.lastInvalidPacketWarningMsec = 0;
+    // Optional (stateInput.vehicles.interpolation.enabled): draw poses a short
+    // delay behind the newest one, interpolated, instead of jumping to each
+    // pose as it arrives. Off by default.
+    const interpolation = config.interpolation ?? {};
+    this.interpolation = interpolation.enabled === true ? interpolation : null;
+    this.interpolators = new Map();
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -37,6 +49,9 @@ export class VehicleStateSource {
 
   updatePosePacket(packet) {
     const names = packet?.joint_names ?? [];
+    // The publisher's (simulation) time, which the interpolator spaces poses by.
+    const stamp = packet?.header?.stamp;
+    const stampMsec = stamp ? Number(stamp.sec) * 1000 + Number(stamp.nanosec) / 1e6 : null;
     const transforms = packet?.transforms ?? [];
     for (let index = 0; index < Math.min(names.length, transforms.length); index += 1) {
       const name = names[index];
@@ -44,6 +59,18 @@ export class VehicleStateSource {
       const state = this.states.get(name) ?? { joints: {} };
       state.transform = transforms[index];
       this.states.set(name, state);
+      if (this.interpolation) {
+        let interpolator = this.interpolators.get(name);
+        if (!interpolator) {
+          interpolator = new PoseInterpolator({
+            delayMsec: this.interpolation.delayMsec,
+            periodMsec: this.interpolation.periodMsec,
+            snapDistanceM: this.interpolation.snapDistanceM,
+          });
+          this.interpolators.set(name, interpolator);
+        }
+        interpolator.push(transforms[index], frameTimeMsec(), stampMsec);
+      }
     }
   }
 
@@ -98,11 +125,19 @@ export class VehicleStateSource {
   }
 
   getState(vehicleId) {
-    return this.states.get(vehicleId) ?? null;
+    const state = this.states.get(vehicleId) ?? null;
+    const interpolator = state && this.interpolators.get(vehicleId);
+    if (!interpolator) return state;
+    // The frame's time (the same for everything drawn in this frame), not the
+    // moment of the call: calls land a few ms apart within a frame, which
+    // showed as the vehicle speeding up and slowing down from frame to frame.
+    const transform = interpolator.sample(frameTimeMsec());
+    return transform ? { ...state, transform } : state;
   }
 
   async dispose() {
     this.states.clear();
+    this.interpolators.clear();
     this.declared = false;
   }
 }
