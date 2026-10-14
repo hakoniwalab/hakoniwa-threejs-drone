@@ -118,6 +118,15 @@ v1.0 では以下を外部仕様にします。
 
 姿勢に送り手の時刻（`header.stamp`、シミュレーション時刻）があれば、その時刻の間隔で並べる（読み取りが送り手より遅く、1回に1〜2周期分届いても速さが揺れない）。位置はそのフレームの時刻（`document.timeline.currentTime`）で求める。車両を滑らかに動かすには `ui.statePanelIntervalMsec` を送り手の周期（例: 20）にする。
 
+#### view-model の表示専用関節連動
+
+車両の `view-model.json` にある `movable_parts` は、次の任意フィールドで別の関節状態を表示へ再利用できる。
+
+- `source_joint` (`string`, 任意): `joint_states` から読む関節名。省略時は従来どおり `joint` を使う
+- `multiplier` (`number`, 任意, 既定: `1`): 読んだ関節値へ掛ける有限かつ非ゼロの倍率
+
+同じ `source_joint` を複数の表示部品へ割り当ててもよい。例えば前輪の操舵角を15倍して車内のステアリングホイールを回せる。この対応は表示専用であり、物理モデルの関節、アクチュエータ、または送信する `JointState` を追加しない。
+
 車両専用sceneでは`mode: "none"`を使用する。ドローンと車両を同時表示する
 場合は`legacy`または`fleets`に`vehicles`を併記する。車両入力はWebSocket v2を
 必須とする。
@@ -127,14 +136,15 @@ v1.0 では以下を外部仕様にします。
 - `statePanelIntervalMsec` (`integer`, 任意, 既定: `100`)
   - デバッグ状態パネルの更新周期[msec]
 - `enableAttachedCameras` (`boolean`, 任意, 既定: `true`)
-  - 各ドローンの小窓カメラ描画を有効化する
+  - 各ドローン・車両の取り付けカメラ描画を有効化する
   - 100機体運用時は `false` 推奨
 - `enableMainCameraMouseControl` (`boolean`, 任意, 既定: `true`)
 
 - `attachedCameraPresentation` (`"overlay" | "main"`, 任意, 既定: `"overlay"`)
   - `overlay`: 従来どおりOrbit cameraをメイン、attached cameraを設定viewportへ表示
   - `main`: 最初のattached cameraをメイン、Orbit cameraを左上PiPへ表示
-  - `main`では`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示
+  - `main`では`Tab`で主・副画面を交換する
+  - `F`は`main`と`overlay`の両方で、PiPと追加カメラをまとめて表示・非表示にする
   - メインカメラ（OrbitControls）のマウス操作を有効化する
 
 ### 3.6 `pdu.autoConnect`（任意）

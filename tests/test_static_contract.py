@@ -91,6 +91,28 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("pduToJs_MultiDOFJointState", source)
         self.assertIn("pduToJs_JointState", source)
 
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_visual_joint_can_reuse_and_scale_a_source_joint(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/joint_motion_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        result = json.loads(output)
+        self.assertEqual(result["direct"], {
+            "sourceJoint": "front_left_steer_joint",
+            "multiplier": 1,
+        })
+        self.assertEqual(result["derived"], {
+            "sourceJoint": "front_left_steer_joint",
+            "multiplier": 15,
+        })
+        self.assertTrue(result["rejectedZero"])
+        vehicle = (ROOT / "src/vehicle.js").read_text(encoding="utf-8")
+        self.assertIn("this.joints.get(sourceJoint) ?? []", vehicle)
+        self.assertIn("value * binding.multiplier", vehicle)
+
     def test_fpv_course_is_an_opt_in_environment(self) -> None:
         environment = (ROOT / "src/environment.js").read_text(encoding="utf-8")
         course = (ROOT / "src/fpv_course.js").read_text(encoding="utf-8")
@@ -140,9 +162,28 @@ class StaticViewerContractTest(unittest.TestCase):
         )
         vehicle_properties = schema["properties"]["vehicles"]["items"]["properties"]
         self.assertIn("frontCamera", vehicle_properties)
-        self.assertIn("this.config.frontCamera", vehicle)
+        self.assertIn("extraCameras", vehicle_properties)
+        extra_camera = vehicle_properties["extraCameras"]["items"]
+        self.assertIn("name", extra_camera["required"])
+        self.assertIn("attachedCameraConfigs(this.config)", vehicle)
         self.assertIn("renderAttachedCameras", vehicle)
+        self.assertIn("renderExtraAttachedCameras?.", app)
+        self.assertIn("includePrimary: false", vehicle)
         self.assertIn("[...drones, ...vehicles]", app)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_vehicle_extra_cameras_follow_the_front_camera_order(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/vehicle_camera_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        result = json.loads(output)
+        self.assertEqual([item["name"] for item in result["cameras"]], ["front", "cabin"])
+        self.assertTrue(result["cameras"][0]["primary"])
+        self.assertFalse(result["cameras"][1]["primary"])
+        self.assertTrue(result["rejectedUnnamed"])
 
     def test_javascript_pdu_submodule_is_initialized(self) -> None:
         for relative in (
