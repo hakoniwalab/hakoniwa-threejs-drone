@@ -4,6 +4,11 @@
 // delay behind it, interpolating between the two poses around that time:
 // position linearly, rotation by slerp. No extrapolation: past the newest pose
 // the newest pose is held.
+//
+// When the poses carry the publisher's time stamp (simulation time), the
+// display times follow the stamps instead: a reader slower than the
+// publisher gets one or two publisher steps per read, and even display
+// times would then show the vehicle alternating between two speeds.
 
 const MAX_SAMPLES = 8;
 
@@ -71,11 +76,13 @@ export class PoseInterpolator {
     this.samples = [];
     this.periodMsec = this.initialPeriodMsec;
     this.lastArrivalMsec = null;
+    this.stampOffsetMsec = null;   // arrival minus stamp, smoothed (stamped poses)
   }
 
-  push(transform, nowMsec) {
+  push(transform, nowMsec, stampMsec = null) {
     const last = this.samples[this.samples.length - 1];
     if (last && sameTransform(last.transform, transform)) return false;
+    if (Number.isFinite(stampMsec) && stampMsec > 0) return this.pushStamped(transform, nowMsec, stampMsec, last);
     const gap = this.lastArrivalMsec === null ? Infinity : nowMsec - this.lastArrivalMsec;
     let displayMsec = nowMsec;
     const jump = last ? Math.hypot(
@@ -100,10 +107,39 @@ export class PoseInterpolator {
     return true;
   }
 
+  pushStamped(transform, nowMsec, stampMsec, last) {
+    const jump = last ? Math.hypot(
+      transform.translation.x - last.transform.translation.x,
+      transform.translation.y - last.transform.translation.y,
+      transform.translation.z - last.transform.translation.z,
+    ) : 0;
+    const step = last?.stampMsec != null ? stampMsec - last.stampMsec : null;
+    if (step !== null && step <= 0 && jump === 0) return false;
+    const offset = nowMsec - stampMsec;
+    if (step === null || step <= 0 || step > this.gapResetMsec || jump > this.snapDistanceM
+        || this.stampOffsetMsec === null || Math.abs(offset - this.stampOffsetMsec) > this.gapResetMsec) {
+      // First pose, a reset (time went back), a paused stream or a teleport.
+      this.samples = [];
+      this.stampOffsetMsec = offset;
+    } else {
+      // Follow the arrival latency slowly; spacing stays the stamps' spacing.
+      this.stampOffsetMsec = 0.98 * this.stampOffsetMsec + 0.02 * offset;
+      this.periodMsec = this.periodMsec === null ? step : 0.9 * this.periodMsec + 0.1 * step;
+    }
+    // A reader slower than the publisher: draw far enough behind to always
+    // have the next pose.
+    this.arrivalPeriodMsec = this.lastArrivalMsec === null ? null
+      : (this.arrivalPeriodMsec ?? (nowMsec - this.lastArrivalMsec)) * 0.9 + 0.1 * (nowMsec - this.lastArrivalMsec);
+    this.lastArrivalMsec = nowMsec;
+    this.samples.push({ displayMsec: stampMsec + this.stampOffsetMsec, transform, stampMsec });
+    if (this.samples.length > MAX_SAMPLES) this.samples.shift();
+    return true;
+  }
+
   sample(nowMsec) {
     const samples = this.samples;
     if (samples.length === 0) return null;
-    const delay = this.delayMsec ?? 1.5 * (this.periodMsec ?? 0);
+    const delay = this.delayMsec ?? 1.5 * Math.max(this.periodMsec ?? 0, this.arrivalPeriodMsec ?? 0);
     const t = nowMsec - delay;
     if (samples.length === 1 || t <= samples[0].displayMsec) return samples[0].transform;
     for (let index = samples.length - 1; index > 0; index -= 1) {

@@ -4,6 +4,11 @@ import { pduToJs_MultiDOFJointState } from "../../thirdparty/hakoniwa-pdu-javasc
 import { validateCompactPdudef, loadPdutypeTable, collectChannelsByPdutype } from "./compact_pdudef_loader.js";
 import { PoseInterpolator } from "./pose_interpolator.js";
 
+function frameTimeMsec() {
+  const frame = typeof document !== "undefined" ? document.timeline?.currentTime : null;
+  return Number.isFinite(frame) ? frame : performance.now();
+}
+
 export class VehicleStateSource {
   constructor(config = {}) {
     this.config = config;
@@ -44,6 +49,9 @@ export class VehicleStateSource {
 
   updatePosePacket(packet) {
     const names = packet?.joint_names ?? [];
+    // The publisher's (simulation) time, which the interpolator spaces poses by.
+    const stamp = packet?.header?.stamp;
+    const stampMsec = stamp ? Number(stamp.sec) * 1000 + Number(stamp.nanosec) / 1e6 : null;
     const transforms = packet?.transforms ?? [];
     for (let index = 0; index < Math.min(names.length, transforms.length); index += 1) {
       const name = names[index];
@@ -61,7 +69,7 @@ export class VehicleStateSource {
           });
           this.interpolators.set(name, interpolator);
         }
-        interpolator.push(transforms[index], performance.now());
+        interpolator.push(transforms[index], frameTimeMsec(), stampMsec);
       }
     }
   }
@@ -120,7 +128,10 @@ export class VehicleStateSource {
     const state = this.states.get(vehicleId) ?? null;
     const interpolator = state && this.interpolators.get(vehicleId);
     if (!interpolator) return state;
-    const transform = interpolator.sample(performance.now());
+    // The frame's time (the same for everything drawn in this frame), not the
+    // moment of the call: calls land a few ms apart within a frame, which
+    // showed as the vehicle speeding up and slowing down from frame to frame.
+    const transform = interpolator.sample(frameTimeMsec());
     return transform ? { ...state, transform } : state;
   }
 

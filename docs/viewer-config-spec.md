@@ -109,6 +109,15 @@ v1.0 では以下を外部仕様にします。
 - `vehicle_states`: `sensor_msgs/MultiDOFJointState`
 - `joint_states`: `sensor_msgs/JointState`
 
+`stateInput.vehicles.interpolation`（任意）：車両を受信した姿勢の間で毎フレーム補間して描く。
+
+- `enabled` (`boolean`, 既定: `false`)
+- `periodMsec` (`number`, 任意): 送り手の周期（推定の初期値）
+- `delayMsec` (`number`, 任意): 最新の姿勢からどれだけ遅れて描くか。省略時は周期の1.5倍
+- `snapDistanceM` (`number`, 任意, 既定: `2.0`): これより長い移動（リセット、再配置）は補間せずに置く
+
+姿勢に送り手の時刻（`header.stamp`、シミュレーション時刻）があれば、その時刻の間隔で並べる（読み取りが送り手より遅く、1回に1〜2周期分届いても速さが揺れない）。位置はそのフレームの時刻（`document.timeline.currentTime`）で求める。車両を滑らかに動かすには `ui.statePanelIntervalMsec` を送り手の周期（例: 20）にする。
+
 車両専用sceneでは`mode: "none"`を使用する。ドローンと車両を同時表示する
 場合は`legacy`または`fleets`に`vehicles`を併記する。車両入力はWebSocket v2を
 必須とする。

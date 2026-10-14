@@ -190,6 +190,9 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertEqual(result["teleported"], 5)
         self.assertAlmostEqual(result["halfTurnZ"], 0.7071, places=3)
         self.assertAlmostEqual(result["halfTurnW"], 0.7071, places=3)
+        # 26.7 m/s at 60 Hz is 0.445 m a frame; even within 25 % (not 0.22 / 0.89).
+        self.assertGreater(result["stampedMinStep"], 0.33)
+        self.assertLess(result["stampedMaxStep"], 0.56)
 
     def test_fleet_pdu_polling_is_single_flight_and_throttled(self) -> None:
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")

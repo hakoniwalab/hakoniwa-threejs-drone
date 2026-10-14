@@ -32,7 +32,26 @@ const snap = new PoseInterpolator({ periodMsec: 40 });
 snap.push(pose(0), 0);
 snap.push(pose(5), 40);
 const teleported = snap.sample(60).translation.x;
+// Stamped: 26.7 m/s published every 20 ms of simulation time, read every
+// 33 ms (one or two publisher steps per read). Spacing by the stamps keeps
+// the per-frame step even; spacing by arrivals alternated 13 / 27 m/s.
+const stamped = new PoseInterpolator({ periodMsec: 20 });
+const stampedSteps = [];
+let lastRead = -1;
+let stampedPrevious = null;
+for (let now = 0; now < 6000; now += 1000 / 60) {
+  const read = Math.floor(now / 33.3);
+  if (read !== lastRead) {
+    lastRead = read;
+    const stampMsec = 1000 + Math.floor((read * 33.3) / 20) * 20;
+    stamped.push(pose(((stampMsec - 1000) / 1000) * 26.7), now, stampMsec);
+  }
+  const sample = stamped.sample(now);
+  if (sample && stampedPrevious !== null && now > 1000) stampedSteps.push(sample.translation.x - stampedPrevious);
+  if (sample) stampedPrevious = sample.translation.x;
+}
 console.log(JSON.stringify({
+  stampedMinStep: Math.min(...stampedSteps), stampedMaxStep: Math.max(...stampedSteps),
   teleported,
   minStep: Math.min(...steps), maxStep: Math.max(...steps), repeatedPushIgnored: repeated === false,
   halfTurnZ: half.z, halfTurnW: half.w,
