@@ -73,6 +73,7 @@ threejs 表示用の scene config は compact 形式のみを対象とする。
 - `followLerpPos` (number, default: `8.0`)
 - `followLerpTarget` (number, default: `10.0`)
 - `followToggleKey` (string, default: `"c"`)
+- `followHeading` (boolean, default: `false`): `true` で追従方向を対象の向き（yaw）に合わせて回す。`position` を対象の後ろ上に置くと、車の後方追従カメラになる
 
 備考:
 - 現在実装では `target` よりも「先頭ドローン追従」が優先される
