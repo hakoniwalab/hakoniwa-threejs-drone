@@ -761,8 +761,9 @@ function animate() {
         renderer.clearDepth();
         renderer.render(scene, pipCamera);
         renderer.setScissorTest(false);
+        selectedEntity.renderExtraAttachedCameras?.(renderer, scene, w, h);
       }
-    } else if (selectedEntity) {
+    } else if (selectedEntity && attachedCameraPipVisible) {
       // Only the selected entity's windows: several entities may use the same
       // corner, and drawing them all hid the one the user wants to see.
       selectedEntity.renderAttachedCameras(renderer, scene, w, h);
@@ -787,12 +788,13 @@ window.addEventListener("keydown", (e) => {
   if (!e.repeat && e.code === "KeyV" && runtimeOptions.enableAttachedCameras) {
     cycleAttachedCamera();
   }
+  if (!e.repeat && e.code === "KeyF" && runtimeOptions.enableAttachedCameras) {
+    attachedCameraPipVisible = !attachedCameraPipVisible;
+  }
   if (!e.repeat && runtimeOptions.attachedCameraPresentation === "main") {
     if (e.key === "Tab") {
       attachedCameraSwapped = !attachedCameraSwapped;
       e.preventDefault();
-    } else if (e.code === "KeyF") {
-      attachedCameraPipVisible = !attachedCameraPipVisible;
     }
   }
   keyState[e.key] = true;

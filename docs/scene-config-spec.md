@@ -116,6 +116,37 @@ scene側の`vehicles[]`は`name`と`type`だけを持つ。View Modelはbase、�
 可動部、joint軸、per-part GLBを定義する。車体world poseとjoint値はPDUから
 更新し、sceneやJavaScriptへ物理パラメータを複製しない。
 
+車両インスタンスには、次の取り付けカメラを任意で指定できる。
+
+- `frontCamera`: 主カメラ。`attachedCameraPresentation: "main"` のときはメイン表示に使う
+- `extraCameras`: 追加カメラの配列。各要素は一意に識別する `name` を必須とし、
+  `frontCamera` と同じ `position`、`rpy`、`fov`、`near`、`far`、
+  `backgroundColor`、`borderColor`、`borderWidthPx`、`window` を指定できる
+
+`extraCameras` は、選択中の車両について各 `window` の位置へ小窓として描く。
+`attachedCameraPresentation` が `"main"` でも `"overlay"` でも同じである。
+`F` キーは主カメラの小窓と追加カメラをまとめて表示・非表示にする。
+
+```json
+{
+  "name": "Car-1",
+  "type": "hakoniwa-car2",
+  "frontCamera": {
+    "position": [-0.05, -0.38, 0.84],
+    "rpy": [0, 0, 0]
+  },
+  "extraCameras": [
+    {
+      "name": "cabin",
+      "position": [0.55, 0.35, 0.78],
+      "rpy": [0, 0, 3.14],
+      "fov": 72,
+      "window": {"x": 0.70, "y": 0.02, "width": 0.28, "height": 0.28}
+    }
+  ]
+}
+```
+
 ## 5. 座標系
 
 scene config の `pos` / `hpr` は ROS(Hakoniwa) 座標系で記述する。

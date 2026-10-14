@@ -170,6 +170,11 @@ http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.j
 ドローンを含まない車両専用sceneでは`stateInput.mode: "none"`とし、
 `stateInput.vehicles.roleMap`へ`MultiDOFJointState`と`JointState`の型を指定します。
 
+view-model の表示専用部品は `source_joint` で既存の関節状態を再利用し、
+`multiplier` で表示角を拡大できます。この対応は物理モデルや送信する
+`JointState` に関節を追加しません。詳細は
+[`docs/viewer-config-spec.md`](docs/viewer-config-spec.md)を参照してください。
+
 ## 公開Viewer API
 
 他のブラウザUIは、次のmoduleを動的importしてViewerを組み込めます。

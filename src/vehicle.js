@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { HakoniwaFrame } from "./frame.js";
+import { jointBindingSpec } from "./joint_motion.js";
+import { attachedCameraConfigs } from "./vehicle_camera.js";
 
 const gltfCache = new Map();
 
@@ -135,12 +137,16 @@ export class Vehicle {
         parent.add(node);
         this.parts.set(part.name, node);
         if (part.joint) {
-          this.joints.set(part.joint, {
+          const { sourceJoint, multiplier } = jointBindingSpec(part);
+          const bindings = this.joints.get(sourceJoint) ?? [];
+          bindings.push({
             node,
             axis: fluVectorToThree(part.motion?.axis ?? [0, 0, 1]).normalize(),
             motionType: part.motion?.type,
             mountQuaternion: node.quaternion.clone(),
+            multiplier,
           });
+          this.joints.set(sourceJoint, bindings);
         }
         if (part.asset) {
           const assetUrl = assets.get(part.asset);
@@ -157,26 +163,26 @@ export class Vehicle {
         throw new Error(`[Vehicle] unresolved part hierarchy: ${pending.map((p) => p.name).join(", ")}`);
       }
     }
-    const frontCamera = this.config.frontCamera;
-    if (frontCamera) {
+    for (const { name, config: cameraConfig, primary } of attachedCameraConfigs(this.config)) {
       const camera = new THREE.PerspectiveCamera(
-        frontCamera.fov ?? 70,
+        cameraConfig.fov ?? 70,
         1.0,
-        frontCamera.near ?? 0.1,
-        frontCamera.far ?? 1000,
+        cameraConfig.near ?? 0.1,
+        cameraConfig.far ?? 1000,
       );
-      camera.name = `${this.vehicleId}/front-camera`;
-      camera.position.copy(fluVectorToThree(frontCamera.position ?? [1.2, 0, 1.2]));
-      camera.quaternion.copy(fluRpyToThreeQuaternion(frontCamera.rpy ?? [0, 0, 0]));
+      camera.name = `${this.vehicleId}/${name}-camera`;
+      camera.position.copy(fluVectorToThree(cameraConfig.position ?? [1.2, 0, 1.2]));
+      camera.quaternion.copy(fluRpyToThreeQuaternion(cameraConfig.rpy ?? [0, 0, 0]));
       this.root.add(camera);
       this.viewCameras.push({
         camera,
-        viewport: frontCamera.window ?? {
+        primary,
+        viewport: cameraConfig.window ?? {
           x: 0.70, y: 0.70, width: 0.28, height: 0.28,
         },
-        backgroundColor: new THREE.Color(frontCamera.backgroundColor ?? 0x000000),
-        borderColor: new THREE.Color(frontCamera.borderColor ?? 0xffffff),
-        borderWidthPx: frontCamera.borderWidthPx ?? 3,
+        backgroundColor: new THREE.Color(cameraConfig.backgroundColor ?? 0x000000),
+        borderColor: new THREE.Color(cameraConfig.borderColor ?? 0xffffff),
+        borderWidthPx: cameraConfig.borderWidthPx ?? 3,
       });
     }
     this.collectBrakeLamps();
@@ -238,11 +244,16 @@ export class Vehicle {
       this.updateBrakeLamps(this.root.position);
     }
     for (const [jointName, value] of Object.entries(joints)) {
-      const binding = this.joints.get(jointName);
-      if (!binding || !Number.isFinite(value)) continue;
-      if (!["continuous", "revolute"].includes(binding.motionType)) continue;
-      const motion = new THREE.Quaternion().setFromAxisAngle(binding.axis, value);
-      binding.node.quaternion.copy(binding.mountQuaternion).multiply(motion);
+      const bindings = this.joints.get(jointName);
+      if (!bindings || !Number.isFinite(value)) continue;
+      for (const binding of bindings) {
+        if (!["continuous", "revolute"].includes(binding.motionType)) continue;
+        const motion = new THREE.Quaternion().setFromAxisAngle(
+          binding.axis,
+          value * binding.multiplier,
+        );
+        binding.node.quaternion.copy(binding.mountQuaternion).multiply(motion);
+      }
     }
   }
 
@@ -250,10 +261,13 @@ export class Vehicle {
     return this.root.getWorldPosition(target);
   }
 
-  renderAttachedCameras(renderer, scene, fullWidth, fullHeight) {
+  renderAttachedCameras(
+    renderer, scene, fullWidth, fullHeight, { includePrimary = true } = {},
+  ) {
     for (const {
-      viewport, camera, backgroundColor, borderColor, borderWidthPx,
+      viewport, camera, backgroundColor, borderColor, borderWidthPx, primary,
     } of this.viewCameras) {
+      if (!includePrimary && primary) continue;
       const vpW = Math.max(1, Math.floor(fullWidth * viewport.width));
       const vpH = Math.max(1, Math.floor(fullHeight * viewport.height));
       const vpX = Math.floor(fullWidth * viewport.x);
@@ -282,6 +296,12 @@ export class Vehicle {
       renderer.setClearColor(previousColor, previousAlpha);
       renderer.setScissorTest(false);
     }
+  }
+
+  renderExtraAttachedCameras(renderer, scene, fullWidth, fullHeight) {
+    this.renderAttachedCameras(
+      renderer, scene, fullWidth, fullHeight, { includePrimary: false },
+    );
   }
 
   getPrimaryAttachedCamera() {
