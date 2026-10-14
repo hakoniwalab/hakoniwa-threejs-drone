@@ -2,7 +2,7 @@ import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_JointState } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/sensor_msgs/pdu_conv_JointState.js";
 import { pduToJs_MultiDOFJointState } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/sensor_msgs/pdu_conv_MultiDOFJointState.js";
 import { validateCompactPdudef, loadPdutypeTable, collectChannelsByPdutype } from "./compact_pdudef_loader.js";
-import { PoseInterpolator } from "./pose_interpolator.js";
+import { PoseInterpolator, StampClock } from "./pose_interpolator.js";
 
 function frameTimeMsec() {
   const frame = typeof document !== "undefined" ? document.timeline?.currentTime : null;
@@ -23,6 +23,7 @@ export class VehicleStateSource {
     const interpolation = config.interpolation ?? {};
     this.interpolation = interpolation.enabled === true ? interpolation : null;
     this.interpolators = new Map();
+    this.stampClock = new StampClock();   // shared by all vehicles (stamped poses)
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -63,6 +64,7 @@ export class VehicleStateSource {
         let interpolator = this.interpolators.get(name);
         if (!interpolator) {
           interpolator = new PoseInterpolator({
+            clock: this.stampClock,
             delayMsec: this.interpolation.delayMsec,
             periodMsec: this.interpolation.periodMsec,
             snapDistanceM: this.interpolation.snapDistanceM,
