@@ -69,6 +69,16 @@ function withSpotTargets(root) {
   return root;
 }
 
+// Brake lamps: the meshes of a view model's parts named like these light up
+// while the vehicle slows (the deceleration is read from its poses, so it works
+// for any vehicle, physics or not) and while it stands.
+const BRAKE_LAMP_NAME = /(^|[/_])(tail_light|stop_lamp|high_stop_lamp|brake_lamp)/;
+const BRAKE_ON_MPS2 = 1.0;        // deceleration that lights the lamps
+const BRAKE_OFF_MPS2 = 0.4;       // and that puts them out (hysteresis)
+const BRAKE_WINDOW_SEC = 0.2;     // poses arrive in bursts: measure over this window
+const BRAKE_STANDSTILL_MPS = 0.3;
+const BRAKE_EMISSIVE_GAIN = 5.0;
+
 export class Vehicle {
   constructor(scene, loader, config) {
     this.scene = scene;
@@ -81,6 +91,8 @@ export class Vehicle {
     this.joints = new Map();
     this.latestPose = null;
     this.viewCameras = [];
+    this.brakeLamps = [];
+    this.motion = null;   // {time, position, speed} for the brake lamps
   }
 
   static async create(scene, loader, config) {
@@ -167,7 +179,52 @@ export class Vehicle {
         borderWidthPx: frontCamera.borderWidthPx ?? 3,
       });
     }
+    this.collectBrakeLamps();
     this.scene.add(this.root);
+  }
+
+  collectBrakeLamps() {
+    this.root.traverse((object) => {
+      if (!object.isMesh) return;
+      let named = object;
+      while (named && !BRAKE_LAMP_NAME.test(named.name ?? "")) named = named.parent;
+      if (!named || named === this.root) return;
+      // The cached GLB's materials are shared between vehicles: own a copy.
+      object.material = object.material.clone();
+      this.brakeLamps.push({
+        material: object.material,
+        emissive: object.material.emissive?.clone(),
+        intensity: object.material.emissiveIntensity ?? 1.0,
+      });
+    });
+  }
+
+  updateBrakeLamps(position) {
+    if (this.brakeLamps.length === 0) return;
+    const now = performance.now() / 1000;
+    if (!this.motion) {
+      this.motion = { time: now, position: position.clone(), speed: null, deceleration: 0, braking: false };
+      return;
+    }
+    const dt = now - this.motion.time;
+    if (dt < BRAKE_WINDOW_SEC) return;
+    const speed = position.distanceTo(this.motion.position) / dt;
+    if (this.motion.speed !== null) {
+      this.motion.deceleration = 0.5 * this.motion.deceleration + 0.5 * (this.motion.speed - speed) / dt;
+    }
+    this.motion.speed = speed;
+    this.motion.time = now;
+    this.motion.position.copy(position);
+    const threshold = this.motion.braking ? BRAKE_OFF_MPS2 : BRAKE_ON_MPS2;
+    const braking = this.motion.deceleration > threshold || speed < BRAKE_STANDSTILL_MPS;
+    if (braking === this.motion.braking && this.motion.speed !== null && this.brakeLampsSet) return;
+    this.motion.braking = braking;
+    this.brakeLampsSet = true;
+    for (const lamp of this.brakeLamps) {
+      lamp.material.emissiveIntensity = braking ? lamp.intensity * BRAKE_EMISSIVE_GAIN : lamp.intensity;
+      if (braking && lamp.emissive && lamp.emissive.getHex() === 0) lamp.material.emissive.setRGB(1.0, 0.05, 0.03);
+      if (!braking && lamp.emissive) lamp.material.emissive.copy(lamp.emissive);
+    }
   }
 
   applyState({ transform, joints = {} } = {}) {
@@ -178,6 +235,7 @@ export class Vehicle {
       ]));
       this.root.quaternion.copy(fluQuaternionToThree(transform.rotation));
       this.latestPose = transform;
+      this.updateBrakeLamps(this.root.position);
     }
     for (const [jointName, value] of Object.entries(joints)) {
       const binding = this.joints.get(jointName);

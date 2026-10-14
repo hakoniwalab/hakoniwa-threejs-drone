@@ -637,6 +637,7 @@ export async function main(
       followLerpPos: mc.followLerpPos ?? 8.0,
       followLerpTarget: mc.followLerpTarget ?? 10.0,
       followToggleKey: mc.followToggleKey ?? "c",
+      followHeading: mc.followHeading ?? false,
       mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
 

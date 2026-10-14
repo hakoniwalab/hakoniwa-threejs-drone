@@ -19,6 +19,7 @@ export class OrbitCamera {
       followLerpPos = 8.0,         // 位置の追従スピード
       followLerpTarget = 10.0,     // ターゲットの追従スピード
       followToggleKey = "c",       // モード切り替えキー
+      followHeading = false,       // true: 追従方向を対象の向き（yaw）に合わせて回す（後方追従）
       mouseEnabled = true,
     } = options;
 
@@ -49,6 +50,7 @@ export class OrbitCamera {
     this.followLerpPos = followLerpPos;
     this.followLerpTarget = followLerpTarget;
     this.followToggleKey = followToggleKey;
+    this.followHeading = !!followHeading;
 
     // 初期距離（position と target の距離）
     const initDist = this.camera.position.distanceTo(this.controls.target);
@@ -66,6 +68,10 @@ export class OrbitCamera {
     if (this._followDir.lengthSq() < 1e-6) this._followDir.set(0, 1, 0);
     this._followDir.normalize();
     this._userOrbiting = false;
+    // With followHeading, _followDir is held in the target's yaw frame.
+    this._followDirLocal = null;
+    this._tmpQuat = new THREE.Quaternion();
+    this._yAxis = new THREE.Vector3(0, 1, 0);
     this.controls.addEventListener("start", () => { this._userOrbiting = true; });
     this.controls.addEventListener("end", () => { this._userOrbiting = false; });
 
@@ -97,6 +103,16 @@ export class OrbitCamera {
   _captureFollowDir() {
     this._tmpDir.copy(this.camera.position).sub(this.controls.target);
     if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
+    this._followDirLocal = null;
+  }
+
+  // The follow target's yaw about the scene's up axis (Y), or null.
+  _targetYaw() {
+    const object = this.followTarget?.root ?? this.followTarget?.object3d ?? null;
+    if (!object?.getWorldQuaternion) return null;
+    object.getWorldQuaternion(this._tmpQuat);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this._tmpQuat);
+    return Math.atan2(-forward.x, -forward.z);
   }
   update(dt) {
     // 追従しない場合はここまで
@@ -133,9 +149,16 @@ export class OrbitCamera {
     currentTarget.lerp(dronePos, alphaTarget);
 
     // ユーザーが回しているときだけ、カメラ → target の向きを取り直す（それ以外は保持）
+    const yaw = this.followHeading ? this._targetYaw() : null;
     if (this._userOrbiting) {
       this._tmpDir.copy(this.camera.position).sub(currentTarget);
       if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
+      this._followDirLocal = null;
+    }
+    if (yaw !== null) {
+      // Keep the camera where it is relative to the target's heading (behind it).
+      if (!this._followDirLocal) this._followDirLocal = this._followDir.clone().applyAxisAngle(this._yAxis, -yaw);
+      this._followDir.copy(this._followDirLocal).applyAxisAngle(this._yAxis, yaw);
     }
     this._tmpDir.copy(this._followDir).multiplyScalar(this.followDistance);
 

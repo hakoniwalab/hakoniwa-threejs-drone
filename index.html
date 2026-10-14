@@ -170,6 +170,22 @@
       gap: 8px;
       margin-top: 10px;
     }
+    .drone-only.hidden-for-vehicles {
+      display: none;
+    }
+
+    .scenario-events {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+
+    .scenario-events li.complete {
+      color: #666;
+    }
+
     .fault-status {
       margin-top: 8px;
       min-height: 16px;
@@ -184,6 +200,20 @@
     <div id="panel">
       <button id="connect-btn">connect</button>
 
+      <div class="prop-box" id="scenario-box" hidden>
+        <h4>シナリオ</h4>
+        <div class="fault-actions">
+          <button id="scenario-start-btn" type="button" disabled>スタート</button>
+          <span id="scenario-status" class="fault-status">接続中</span>
+        </div>
+        <div style="margin-top: 6px;">
+          <label><input type="checkbox" id="scenario-night"> 夜</label>
+          <label style="margin-left: 8px;"><input type="checkbox" id="scenario-route"> 予定ルート</label>
+        </div>
+        <table class="prop-table" id="scenario-speeds"></table>
+        <ol id="scenario-events" class="scenario-events"></ol>
+      </div>
+
       <div style="margin-top: 8px;">
         <label for="ws-uri-input"><strong>WebSocket URI</strong></label><br>
         <input
@@ -194,19 +224,19 @@
         >
       </div>
 
-      <div style="margin-top: 8px;">
+      <div class="drone-only" style="margin-top: 8px;">
         <label for="drone-select"><strong>Drone</strong></label><br>
         <select id="drone-select" style="width: 100%;"></select>
       </div>
 
-      <div style="margin-top: 4px;">
+      <div class="drone-only" style="margin-top: 4px;">
         <label>
           <input type="checkbox" id="follow-checkbox" checked>
           Follow selected
         </label>
       </div>
 
-      <div class="prop-box">
+      <div class="prop-box drone-only">
         <h4>Drone State (debug)</h4>
         <table class="prop-table">
           <tr><td class="label">x:</td><td class="value" id="prop-x"></td></tr>
@@ -219,7 +249,7 @@
         </table>
       </div>
 
-      <div class="prop-box">
+      <div class="prop-box drone-only">
         <h4>Rotor Fault Injection</h4>
         <div class="fault-grid">
           <label for="rotor-scale-0">Rotor 0</label>
@@ -245,7 +275,7 @@
         <div id="fault-status" class="fault-status"></div>
       </div>
 
-      <div class="prop-box">
+      <div class="prop-box drone-only">
         <h4>Wind Disturbance (ROS)</h4>
         <div class="fault-grid">
           <label for="wind-heading-deg">Heading</label>
@@ -288,6 +318,7 @@
   <script type="module">
     import { createDroneViewer } from "./src/public/drone_viewer.js";
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
+    import { ScenarioPanel, validateScenarioPanel } from "./src/scenario_panel.js";
 
     const viewer = createDroneViewer();
     window.droneViewer = viewer;
@@ -648,11 +679,84 @@
           }
           await viewer.initialize();
           populateDroneSelect();
+          validateScenarioPanel(config.scenarioPanel);
+          setupScenarioBox(config);
+          // A scene without Drones (cars, people): the Drone controls are not used.
+          if (viewer.getDrones().length === 0) {
+            document.querySelectorAll('.drone-only').forEach((element) => element.classList.add('hidden-for-vehicles'));
+          }
+          if (config.pdu?.autoConnect) {
+            connectBtn.click();
+          }
           console.log("[DroneViewer] loaded viewer config:", configUrl, config);
         })
         .catch((e) => {
           console.error(e);
         });
+
+      // --- Scenario panel (viewerConfig.scenarioPanel) ---------------------------
+      const scenarioBox = document.getElementById('scenario-box');
+      const scenarioStartBtn = document.getElementById('scenario-start-btn');
+      const scenarioStatus = document.getElementById('scenario-status');
+      const scenarioEvents = document.getElementById('scenario-events');
+      const scenarioNight = document.getElementById('scenario-night');
+      const scenarioRoute = document.getElementById('scenario-route');
+      let scenarioPanel = null;
+      const SCENARIO_STATUS = { waiting: "スタート待ち", running: "実行中", completed: "終了" };
+
+      function setupScenarioBox(config) {
+        if (!config.scenarioPanel) return;
+        scenarioBox.hidden = false;
+        scenarioRoute.disabled = !viewer.hasPlannedPaths();
+        scenarioNight.addEventListener('change', () => viewer.setNightMode(scenarioNight.checked));
+        scenarioRoute.addEventListener('change', () => viewer.setPlannedPathsVisible(scenarioRoute.checked));
+        scenarioStartBtn.addEventListener('click', async () => {
+          scenarioStartBtn.disabled = true;
+          const ok = await scenarioPanel?.sendCommand("start");
+          if (!ok) {
+            scenarioStatus.textContent = "送信できませんでした";
+            scenarioStartBtn.disabled = false;
+          }
+        });
+      }
+
+      const scenarioSpeeds = document.getElementById('scenario-speeds');
+      function renderVehicleSpeeds() {
+        const rows = viewer.getVehicles()
+          .filter((vehicle) => vehicle.motion?.speed != null)
+          .map((vehicle) => `<tr><td class="label">${vehicle.vehicleId}</td>`
+            + `<td class="value">${(vehicle.motion.speed * 3.6).toFixed(0)} km/h</td></tr>`);
+        scenarioSpeeds.innerHTML = rows.join("");
+      }
+
+      function renderScenarioEvents() {
+        const status = scenarioPanel.status();
+        scenarioStatus.textContent = SCENARIO_STATUS[status] ?? status;
+        scenarioStartBtn.disabled = status !== "waiting";
+        scenarioEvents.innerHTML = "";
+        for (const event of scenarioPanel.events) {
+          if (event.kind === "status") continue;
+          const item = document.createElement('li');
+          item.textContent = `${event.scenarioSec.toFixed(2)} s  ${event.name}  ${event.state}`;
+          item.title = `箱庭時刻 ${event.hakoSec.toFixed(2)} s（${event.kind}）`;
+          item.className = event.state;
+          scenarioEvents.appendChild(item);
+        }
+        scenarioEvents.scrollTop = scenarioEvents.scrollHeight;
+      }
+
+      async function attachScenarioPanel() {
+        const config = loadedViewerConfig?.scenarioPanel;
+        if (!config || scenarioPanel) return;
+        scenarioPanel = new ScenarioPanel(config);
+        await scenarioPanel.attach();
+        scenarioStatus.textContent = SCENARIO_STATUS.waiting;
+        scenarioStartBtn.disabled = false;
+        setInterval(() => {
+          if (scenarioPanel.poll()) renderScenarioEvents();
+        }, 20);
+        setInterval(renderVehicleSpeeds, 250);
+      }
 
       connectBtn.addEventListener('click', async () => {
         connectBtn.disabled = true;
@@ -673,6 +777,7 @@
             setInterval(updateDroneStatePanel, statePanelIntervalMsec);
 
             connectBtn.textContent = "connected";
+            await attachScenarioPanel();
           } else {
             connectBtn.textContent = "connect failed";
             connectBtn.disabled = false;

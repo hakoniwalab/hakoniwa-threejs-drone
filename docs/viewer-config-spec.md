@@ -128,6 +128,22 @@ v1.0 では以下を外部仕様にします。
   - `main`では`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示
   - メインカメラ（OrbitControls）のマウス操作を有効化する
 
+### 3.6 `pdu.autoConnect`（任意）
+
+- `autoConnect` (`boolean`, 任意, 既定: `false`): `true` で、ページを開いて設定を読んだらすぐ WebSocket に接続する（connect ボタンを押さなくてよい）
+
+### 3.7 `scenarioPanel`（任意）
+
+シナリオの欄（index UI）を出す。スタートボタン、出来事の一覧、車両の速度、夜、予定ルートの切り替え。
+
+- `robotName` (`string`, 必須): 指令・出来事の PDU を持つ robot
+- `commandPdu` (`string`, 必須): `std_msgs/String`。スタートボタンが `start` を書く（Web bridge に WebSocket → 共有メモリの経路が要る）
+- `eventsPdu` (`string`, 必須): `std_msgs/String`。シミュレーション側が出来事を1行ずつ書く：`seq|箱庭時刻[s]|シナリオ時刻[s]|kind|name|state`。`seq` が変われば新しい行、減ればやり直し。`kind` が `status` の行は状態（`waiting`、`running`、`completed`、Drone Show の制御と同じ名前）
+
+ドローンのいない scene では、Drone の選択・状態・故障注入・風の欄を出さない。
+
+車両のブレーキランプ：view model の部品のうち、名前が `tail_light`、`stop_lamp`、`high_stop_lamp`、`brake_lamp` を含むものを、減速中（1.0 m/s² 以上、0.4 m/s² 未満で消灯）と停止中に強く光らせる。減速は姿勢の更新から 0.2 秒ごとに求める（物理のない車両にも効く）。
+
 補足:
 - `Follow selected`（index UI）のON/OFFは runtime 操作であり、`viewer_config` 項目は持たない
 - ただし ON 時の追従体験には `enableMainCameraMouseControl` が影響する
