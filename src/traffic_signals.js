@@ -17,8 +17,9 @@ const DIM = 0.18;
 function isLamp(mesh) {
   const color = mesh.material?.color;
   if (!mesh.isMesh || !color) return false;
-  const { h, s, l } = color.getHSL({});
-  return s > 0.5 && l > 0.15 && (h < 0.05 || h > 0.95 || (h > 0.1 && h < 0.2) || (h > 0.25 && h < 0.45));
+  // In sRGB, as the parts were coloured (#e53935, #fbc02d, #43a047): hues near 0, 0.12, 0.35.
+  const { h, s, l } = color.getHSL({}, THREE.SRGBColorSpace);
+  return s > 0.5 && l > 0.15 && (h < 0.05 || h > 0.95 || (h > 0.08 && h < 0.2) || (h > 0.25 && h < 0.45));
 }
 
 export class TrafficSignals {
@@ -44,10 +45,13 @@ export class TrafficSignals {
       part.traverse((object) => { if (isLamp(object)) meshes.push(object); });
     }
     if (!meshes.length) return [];  // the world is not loaded yet: look again next time
-    const position = new THREE.Vector3();
+    // The lamps' height: the centre of each part's world bounding box (the parts share one
+    // origin; their vertices carry the positions).
+    const centre = new THREE.Vector3();
     const lamps = meshes.map((mesh) => {
       mesh.material = mesh.material.clone();  // only this signal's lamp changes
-      return { mesh, color: mesh.material.color.clone(), y: mesh.getWorldPosition(position).y };
+      const y = new THREE.Box3().setFromObject(mesh).getCenter(centre).y;
+      return { mesh, color: mesh.material.color.clone(), y };
     }).sort((a, b) => b.y - a.y);
     this.lamps.set(id, lamps);
     return lamps;
