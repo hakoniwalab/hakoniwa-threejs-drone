@@ -10,8 +10,30 @@ import * as THREE from "three";
 import { Hakoniwa } from "./hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_UInt32 } from "../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/std_msgs/pdu_conv_UInt32.js";
 
-const LIT_INTENSITY = 2.0;
+const LIT_INTENSITY = 4.0;
 const DIM = 0.18;
+const HALO_SIZE_M = 0.7;   // the glow around a lit lamp, so it reads from afar and at night
+
+let haloTexture = null;
+function halo(color) {
+  if (!haloTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 64;
+    const context = canvas.getContext("2d");
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.3, "rgba(255,255,255,0.6)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+    haloTexture = new THREE.CanvasTexture(canvas);
+  }
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: haloTexture, color, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  }));
+  sprite.scale.set(HALO_SIZE_M, HALO_SIZE_M, 1);
+  return sprite;
+}
 
 /** A lamp is a mesh coloured clearly red, yellow or green (the traffic signal's lamp parts). */
 function isLamp(mesh) {
@@ -47,11 +69,15 @@ export class TrafficSignals {
     if (!meshes.length) return [];  // the world is not loaded yet: look again next time
     // The lamps' height: the centre of each part's world bounding box (the parts share one
     // origin; their vertices carry the positions).
-    const centre = new THREE.Vector3();
     const lamps = meshes.map((mesh) => {
       mesh.material = mesh.material.clone();  // only this signal's lamp changes
-      const y = new THREE.Box3().setFromObject(mesh).getCenter(centre).y;
-      return { mesh, color: mesh.material.color.clone(), y };
+      mesh.material.toneMapped = false;       // a lit lamp glows the same by day and by night
+      const centre = new THREE.Box3().setFromObject(mesh).getCenter(new THREE.Vector3());
+      const glow = halo(mesh.material.color.clone());
+      glow.position.copy(mesh.worldToLocal(centre.clone()));
+      glow.visible = false;
+      mesh.add(glow);
+      return { mesh, color: mesh.material.color.clone(), y: centre.y, glow };
     }).sort((a, b) => b.y - a.y);
     this.lamps.set(id, lamps);
     return lamps;
@@ -60,8 +86,9 @@ export class TrafficSignals {
   show(id, bits) {
     const lamps = this.lampsOf(id);
     if (!lamps.length) return false;
-    lamps.forEach(({ mesh, color }, index) => {
+    lamps.forEach(({ mesh, color, glow }, index) => {
       const lit = (bits >> index) & 1;
+      glow.visible = Boolean(lit);
       mesh.material.color.copy(color).multiplyScalar(lit ? 1.0 : DIM);
       if (mesh.material.emissive) {
         mesh.material.emissive.copy(lit ? color : new THREE.Color(0, 0, 0));
