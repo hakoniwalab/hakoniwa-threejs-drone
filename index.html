@@ -333,6 +333,7 @@
     import { createDroneViewer } from "./src/public/drone_viewer.js";
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
     import { ScenarioPanel, validateScenarioPanel } from "./src/scenario_panel.js";
+    import { TrafficSignals } from "./src/traffic_signals.js";
 
     const viewer = createDroneViewer();
     window.droneViewer = viewer;
@@ -808,6 +809,12 @@
         setInterval(() => {
           if (scenarioPanel.poll()) renderScenarioEvents();
         }, 20);
+        // Traffic signal lamps (scenarioPanel.signalPdus): one PDU per signal, set by esmini.
+        if (config.signalPdus && Object.keys(config.signalPdus).length) {
+          const signals = new TrafficSignals(config, (predicate) => viewer.findSceneObjects(predicate));
+          await signals.attach();
+          setInterval(() => signals.poll(), 100);
+        }
         setInterval(renderVehicleSpeeds, 250);
         setInterval(renderHud, 200);
       }

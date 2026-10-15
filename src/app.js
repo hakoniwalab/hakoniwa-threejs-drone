@@ -139,6 +139,12 @@ export function addSceneDecoration(object3d) {
   scene.add(object3d);
   return object3d;
 }
+/** The scene's objects whose name passes `predicate` (for example a world part by its id). */
+export function findSceneObjects(predicate) {
+  const found = [];
+  scene?.traverse((object) => { if (predicate(object.name ?? "", object)) found.push(object); });
+  return found;
+}
 export function removeSceneDecoration(object3d) {
   if (!object3d?.isObject3D) return false;
   scene.remove(object3d);

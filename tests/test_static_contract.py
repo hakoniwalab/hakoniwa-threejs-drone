@@ -29,6 +29,17 @@ class StaticViewerContractTest(unittest.TestCase):
                     target = (path.parent / value).resolve()
                     self.assertTrue(target.is_file(), f"{path.name}: missing {section}.{key} target {value}")
 
+    def test_traffic_signal_lamps_are_wired(self) -> None:
+        # hakoniwa-scenario M3-2: one std_msgs/UInt32 PDU per signal lights the lamps of the
+        # world part "signal-<road>-<id>".
+        source = (ROOT / "src/traffic_signals.js").read_text(encoding="utf-8")
+        for marker in ("export class TrafficSignals", "pduToJs_UInt32", 'name.startsWith("signal-")'):
+            self.assertIn(marker, source)
+        self.assertIn("findSceneObjects(predicate)", (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8"))
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn('from "./src/traffic_signals.js"', index)
+        self.assertIn("config.signalPdus", index)
+
     def test_public_viewer_api_used_by_integrators_is_present(self) -> None:
         source = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         for marker in (
