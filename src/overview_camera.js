@@ -24,6 +24,14 @@ export function overviewDistance(radius, fovDeg, { minDistanceM = 15, marginM = 
   return Math.max(minDistanceM, (radius + marginM) / Math.sin(halfFovRad));
 }
 
+export function clampOverviewZoom(zoom, { min = 0.2, max = 5.0 } = {}) {
+  return Math.min(max, Math.max(min, zoom));
+}
+
+export function updateOverviewZoom(currentZoom, multiplier, options) {
+  return clampOverviewZoom(currentZoom * multiplier, options);
+}
+
 export function overviewFrame(positions, fovDeg, options) {
   const centroid = overviewCentroid(positions);
   if (!centroid) return null;

@@ -168,6 +168,9 @@ class StaticViewerContractTest(unittest.TestCase):
         index = (ROOT / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="camera-driver-btn"', index)
         self.assertIn("viewer.setObjectiveViewMain(false)", index)
+        self.assertIn('id="camera-zoom-in-btn"', index)
+        self.assertIn('id="camera-zoom-out-btn"', index)
+        self.assertIn("viewer.zoomObjectiveCamera(0.8)", index)
 
     def test_vehicle_front_camera_uses_the_shared_attached_camera_presentation(self) -> None:
         app = (ROOT / "src/app.js").read_text(encoding="utf-8")

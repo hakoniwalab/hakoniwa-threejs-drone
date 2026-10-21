@@ -194,7 +194,7 @@ await viewer.initDronePdu();
 
 ## モデル資産
 
-標準の`base`モデルは`assets/models/`で管理します。DJIモデルやPLATEAU GLBなど、ライセンスやサイズの都合でリポジトリへ含めない資産は`assets/local_models/`へ配置します。
+標準の`base`モデルは`assets/models/`で管理します。公開モデルとして`quadrotor_base`、`hexa_eams`、MJCF由来の`x500`（`config/drone_types-x500.json`）を利用できます。DJIモデルやPLATEAU GLBなど、ライセンスやサイズの都合でリポジトリへ含めない資産は`assets/local_models/`へ配置します。
 
 ```text
 assets/local_models/

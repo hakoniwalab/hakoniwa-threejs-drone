@@ -2,7 +2,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RenderEntity } from "./render_entity.js";
-import { overviewFrame } from "./overview_camera.js";
+import { overviewFrame, updateOverviewZoom } from "./overview_camera.js";
+
+const MIN_FOLLOW_DISTANCE_M = 1;
+const MAX_FOLLOW_DISTANCE_M = 500;
+const WHEEL_ZOOM_RATE = 0.0015;
 
 export class OrbitCamera {
   constructor(renderer, options = {}) {
@@ -47,10 +51,12 @@ export class OrbitCamera {
     this.controls.zoomSpeed = 1.0;
     this.controls.panSpeed = 0.8;
     this.controls.enabled = !!mouseEnabled;
+    this._mouseControlEnabled = !!mouseEnabled;
     this.controls.update();
 
     // --- 追従状態 ---
     this.mode = initialMode;        // "follow" or "fixed"
+    this.controls.enableZoom = initialMode === "fixed";
     this.followTarget = followTarget;
     this.followLerpPos = followLerpPos;
     this.followLerpTarget = followLerpTarget;
@@ -60,6 +66,7 @@ export class OrbitCamera {
     this.overviewMinDistanceM = overviewMinDistanceM;
     this.overviewMarginM = overviewMarginM;
     this.overviewToggleKey = overviewToggleKey;
+    this.overviewZoom = 1.0;
 
     // 初期距離（position と target の距離）
     const initDist = this.camera.position.distanceTo(this.controls.target);
@@ -83,6 +90,13 @@ export class OrbitCamera {
     this._yAxis = new THREE.Vector3(0, 1, 0);
     this.controls.addEventListener("start", () => { this._userOrbiting = true; });
     this.controls.addEventListener("end", () => { this._userOrbiting = false; });
+    this._onWheel = (event) => {
+      if (!this._mouseControlEnabled || (this.mode !== "follow" && this.mode !== "overview")) return;
+      event.preventDefault();
+      this.zoomByFactor(Math.exp(event.deltaY * WHEEL_ZOOM_RATE));
+    };
+    renderer.domElement.addEventListener("wheel", this._onWheel, { passive: false });
+    this._domElement = renderer.domElement;
 
     // キーボード切り替え
     this._onKeyDown = (e) => {
@@ -102,8 +116,14 @@ export class OrbitCamera {
   setMode(mode) {
     if (mode !== "follow" && mode !== "fixed" && mode !== "overview") return;
     if (mode === "follow" && this.mode !== "follow") this._captureFollowDir();
-    if (mode === "overview" && this.mode !== "overview") this._captureOverviewDir();
+    if (mode === "overview" && this.mode !== "overview") {
+      this._captureOverviewDir();
+      // Each overview session starts with automatic framing; subsequent zoom persists.
+      this.overviewZoom = 1.0;
+    }
     this.mode = mode;
+    // Follow/overview distances are stateful; fixed mode uses OrbitControls' dolly.
+    this.controls.enableZoom = mode === "fixed";
     window.dispatchEvent(new CustomEvent("hakoniwa-camera-mode-change", { detail: { mode } }));
   }
 
@@ -156,20 +176,7 @@ export class OrbitCamera {
       return;
     }
 
-    // ★ OrbitControls更新「前」の距離を記録
-    const distanceBefore = this.camera.position.distanceTo(this.controls.target);
-    
-    // マウス入力を反映
     this.controls.update();
-    
-    // ★ OrbitControls更新「後」の距離
-    const distanceAfter = this.camera.position.distanceTo(this.controls.target);
-    const zoomDelta = Math.abs(distanceAfter - distanceBefore);
-    
-    // ユーザーがズーム操作したときだけ followDistance を更新
-    if (zoomDelta > 0.01) {
-      this.followDistance = distanceAfter;
-    }
 
     // dt → lerp 係数
     const alphaPos = 1.0 - Math.exp(-this.followLerpPos * dt);
@@ -239,14 +246,35 @@ export class OrbitCamera {
       if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
     }
     this._tmpDesiredPos.copy(this.controls.target).add(
-      this._tmpDir.copy(this._followDir).multiplyScalar(frame.distance),
+      this._tmpDir.copy(this._followDir).multiplyScalar(frame.distance * this.overviewZoom),
     );
     this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
   }
 
+  zoomByFactor(multiplier) {
+    if (!Number.isFinite(multiplier) || multiplier <= 0) return false;
+    if (this.mode === "follow") {
+      this.followDistance = THREE.MathUtils.clamp(
+        this.followDistance * multiplier,
+        MIN_FOLLOW_DISTANCE_M,
+        MAX_FOLLOW_DISTANCE_M,
+      );
+      return true;
+    }
+    if (this.mode === "overview") {
+      this.overviewZoom = updateOverviewZoom(this.overviewZoom, multiplier);
+      return true;
+    }
+    return false;
+  }
+
   updateFollowDistance(distance) {
-    this.followDistance += distance;
-    console.log("[OrbitCamera] followDistance:", this.followDistance);
+    if (!Number.isFinite(distance)) return;
+    this.followDistance = THREE.MathUtils.clamp(
+      this.followDistance + distance,
+      MIN_FOLLOW_DISTANCE_M,
+      MAX_FOLLOW_DISTANCE_M,
+    );
   }
 
   resize(width, height) {
@@ -256,10 +284,12 @@ export class OrbitCamera {
 
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
+    this._domElement.removeEventListener("wheel", this._onWheel);
     this.controls.dispose();
   }
 
   setMouseControlEnabled(enabled) {
-    this.controls.enabled = !!enabled;
+    this._mouseControlEnabled = !!enabled;
+    this.controls.enabled = this._mouseControlEnabled;
   }
 }
