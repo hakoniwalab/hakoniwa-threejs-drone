@@ -2,6 +2,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RenderEntity } from "./render_entity.js";
+import { overviewFrame } from "./overview_camera.js";
 
 export class OrbitCamera {
   constructor(renderer, options = {}) {
@@ -20,6 +21,10 @@ export class OrbitCamera {
       followLerpTarget = 10.0,     // ターゲットの追従スピード
       followToggleKey = "c",       // モード切り替えキー
       followHeading = false,       // true: 追従方向を対象の向き（yaw）に合わせて回す（後方追従）
+      overviewTargets = () => [],
+      overviewMinDistanceM = 15,
+      overviewMarginM = 5,
+      overviewToggleKey = "o",
       mouseEnabled = true,
     } = options;
 
@@ -51,6 +56,10 @@ export class OrbitCamera {
     this.followLerpTarget = followLerpTarget;
     this.followToggleKey = followToggleKey;
     this.followHeading = !!followHeading;
+    this.overviewTargets = overviewTargets;
+    this.overviewMinDistanceM = overviewMinDistanceM;
+    this.overviewMarginM = overviewMarginM;
+    this.overviewToggleKey = overviewToggleKey;
 
     // 初期距離（position と target の距離）
     const initDist = this.camera.position.distanceTo(this.controls.target);
@@ -79,6 +88,8 @@ export class OrbitCamera {
     this._onKeyDown = (e) => {
       if (e.key === this.followToggleKey) {
         this.toggleMode();
+      } else if (e.key.toLowerCase() === this.overviewToggleKey.toLowerCase()) {
+        this.setMode(this.mode === "overview" ? "follow" : "overview");
       }
     };
     window.addEventListener("keydown", this._onKeyDown);
@@ -89,9 +100,11 @@ export class OrbitCamera {
   }
 
   setMode(mode) {
-    if (mode !== "follow" && mode !== "fixed") return;
+    if (mode !== "follow" && mode !== "fixed" && mode !== "overview") return;
     if (mode === "follow" && this.mode !== "follow") this._captureFollowDir();
+    if (mode === "overview" && this.mode !== "overview") this._captureOverviewDir();
     this.mode = mode;
+    window.dispatchEvent(new CustomEvent("hakoniwa-camera-mode-change", { detail: { mode } }));
   }
 
   toggleMode() {
@@ -106,6 +119,24 @@ export class OrbitCamera {
     this._followDirLocal = null;
   }
 
+  _captureOverviewDir() {
+    this._tmpDir.copy(this.camera.position).sub(this.controls.target);
+    if (this._tmpDir.lengthSq() < 1e-6) this._tmpDir.set(0, 1, 1);
+    this._tmpDir.normalize();
+    // A level/below-ground view can hide the subjects behind the ground.
+    if (this._tmpDir.y < Math.sin(THREE.MathUtils.degToRad(5))) {
+      const azimuth = Math.atan2(this._tmpDir.z, this._tmpDir.x);
+      const horizontal = Math.cos(THREE.MathUtils.degToRad(35));
+      this._tmpDir.set(
+        horizontal * Math.cos(azimuth),
+        Math.sin(THREE.MathUtils.degToRad(35)),
+        horizontal * Math.sin(azimuth),
+      );
+    }
+    this._followDir.copy(this._tmpDir);
+    this._followDirLocal = null;
+  }
+
   // The follow target's yaw about the scene's up axis (Y), or null.
   _targetYaw() {
     const object = this.followTarget?.root ?? this.followTarget?.object3d ?? null;
@@ -115,6 +146,10 @@ export class OrbitCamera {
     return Math.atan2(-forward.x, -forward.z);
   }
   update(dt) {
+    if (this.mode === "overview") {
+      this._updateOverview(dt);
+      return;
+    }
     // 追従しない場合はここまで
     if (this.mode !== "follow" || !this.followTarget) {
       this.controls.update();
@@ -176,6 +211,36 @@ export class OrbitCamera {
     this._tmpDesiredPos.copy(currentTarget).add(this._tmpDir);
 
     // カメラ位置をゆっくり目標に寄せる
+    this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
+  }
+
+  _updateOverview(dt) {
+    this.controls.update();
+    const targets = this.overviewTargets?.() ?? [];
+    const positions = [];
+    for (const target of targets) {
+      if (!target?.getWorldPosition) continue;
+      const position = target.getWorldPosition(new THREE.Vector3());
+      positions.push([position.x, position.y, position.z]);
+    }
+    const frame = overviewFrame(positions, this.camera.fov, {
+      minDistanceM: this.overviewMinDistanceM,
+      marginM: this.overviewMarginM,
+    });
+    if (!frame) return;
+
+    const alphaPos = 1.0 - Math.exp(-this.followLerpPos * dt);
+    const alphaTarget = 1.0 - Math.exp(-this.followLerpTarget * dt);
+    const desiredTarget = this._tmpTarget.set(...frame.centroid);
+    this.controls.target.lerp(desiredTarget, alphaTarget);
+
+    if (this._userOrbiting) {
+      this._tmpDir.copy(this.camera.position).sub(this.controls.target);
+      if (this._tmpDir.lengthSq() > 1e-6) this._followDir.copy(this._tmpDir).normalize();
+    }
+    this._tmpDesiredPos.copy(this.controls.target).add(
+      this._tmpDir.copy(this._followDir).multiplyScalar(frame.distance),
+    );
     this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
   }
 

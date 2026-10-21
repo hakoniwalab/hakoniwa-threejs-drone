@@ -163,6 +163,7 @@ http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.j
 - `stateInput.vehicles.roleMap`
 - `ui.enableAttachedCameras`
 - `ui.attachedCameraPresentation` (`overlay` / `main`)
+- `ui.initialMainView` (`attached` / `objective`、既定 `attached`)
 - `ui.enableMainCameraMouseControl`
 
 `fleets`では`pdu.wireVersion: "v2"`が必須です。多数機表示では、`ui.enableAttachedCameras: false`を推奨します。
@@ -248,16 +249,19 @@ Scene設定のenvironmentへ`"type": "fpv-course"`を明示した場合だけ、
 
 Viewer設定のoptionalな`faultInjection`（`robotName`、`rotorCount`、`pduName`は既定`disturb`）で、ローター故障・風の送信先機体とローター数を指定します。地図などに組み込む画面は`mountFaultPanel(container, viewer)`でローター数分のスライダーを持つパネルを表示できます。省略時は従来どおり`Drone`・4ローターです。
 
-Viewer設定で`ui.attachedCameraPresentation: "main"`を明示すると、最初の機体attached cameraを全面表示し、従来のOrbit cameraを左上PiPへ表示します。`Tab`で主・副画面を交換し、`F`でPiPを表示・非表示にできます。既定値は従来互換の`overlay`です。
+Viewer設定で`ui.attachedCameraPresentation: "main"`を明示すると、最初の機体attached cameraを全面表示し、従来のOrbit cameraを左上PiPへ表示します。`ui.initialMainView: "objective"`なら開始時からOrbit cameraが全面、attached cameraがPiPになります（既定は`"attached"`）。`Tab`または「運転席 / 追従 / 全体」で主・副画面を切り替え、`F`でPiPを表示・非表示にできます。`main_camera.initialMode`には`follow` / `fixed` / `overview`を指定できます。既定値は従来互換の`overlay`、`attached`、`follow`です。
 
 ## UI
 
 - `connect`: WebSocket PDU接続
 - Drone selector: 注視対象の選択
 - `Follow selected`: 選択機体への追従
+- `視点` の `追従` / `全体`: 選択した機体への追従と、全ドローン・車両を収める全体表示を切り替えます。`全体` は現在の旋回方向を保って重心と距離を滑らかに更新し、`O` キーでも切り替えられます（従来の追従切替キー `C` も利用できます）。
 - Mouse control: OrbitControlsによるメインカメラ操作
 - Fault injection: ローター出力倍率の設定
 - Wind: 風向・風速の設定と送信
+
+全体表示の最小距離と余白は、scene config の `main_camera.overview.minDistanceM`（既定15 m）と `main_camera.overview.marginM`（既定5 m）で任意に変更できます。
 
 ## CI
 

@@ -1,4 +1,4 @@
-import { main, getDrones, getVehicles, addSceneDecoration, removeSceneDecoration, findSceneObjects, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setCameraPose, getCameraPose, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, getVehicles, addSceneDecoration, removeSceneDecoration, findSceneObjects, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setCameraOverviewEnabled, setObjectiveViewMain, isObjectiveViewMain, getCameraViewState, setCameraPose, getCameraPose, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -156,6 +156,10 @@ function validateViewerConfig(config) {
   if (attachedPresentation !== "overlay" && attachedPresentation !== "main") {
     throw new Error("[DroneViewer] ui.attachedCameraPresentation must be overlay or main.");
   }
+  const initialMainView = config.ui?.initialMainView ?? "attached";
+  if (initialMainView !== "attached" && initialMainView !== "objective") {
+    throw new Error("[DroneViewer] ui.initialMainView must be attached or objective.");
+  }
   if (config.ui?.enableMainCameraMouseControl != null && typeof config.ui.enableMainCameraMouseControl !== "boolean") {
     throw new Error("[DroneViewer] ui.enableMainCameraMouseControl must be boolean.");
   }
@@ -221,6 +225,7 @@ export class DroneViewer {
       enableMainCameraMouseControl: this.viewerConfig?.ui?.enableMainCameraMouseControl,
       transparentBackground: this.viewerConfig?.three?.transparentBackground,
       attachedCameraPresentation: this.viewerConfig?.ui?.attachedCameraPresentation,
+      initialMainView: this.viewerConfig?.ui?.initialMainView,
     });
     const fleetOptions = this.viewerConfig?.stateInput?.fleets ?? {};
     await main(resolvedSceneConfigPath, {
@@ -403,6 +408,22 @@ export class DroneViewer {
 
   setFollowSelectedEnabled(enabled) {
     return setCameraFollowEnabled(!!enabled);
+  }
+
+  setOverviewEnabled(enabled) {
+    return setCameraOverviewEnabled(!!enabled);
+  }
+
+  setObjectiveViewMain(enabled) {
+    return setObjectiveViewMain(!!enabled);
+  }
+
+  isObjectiveViewMain() {
+    return isObjectiveViewMain();
+  }
+
+  getCameraViewState() {
+    return getCameraViewState();
   }
 
   // The vehicles' own (attached) cameras: off hides their picture-in-picture.
