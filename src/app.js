@@ -270,7 +270,10 @@ export function setAudienceCameraPose(pose = {}) {
   return audienceCam.setPose(pose);
 }
 // renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+// Logarithmic depth: city roads lie 1-20 mm above the ground and the main
+// camera spans 0.1 m to 20 km, so a linear depth buffer cannot tell them
+// apart a few tens of metres away and they flicker (z-fighting).
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.toneMappingExposure = 1.25;
