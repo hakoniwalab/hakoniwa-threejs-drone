@@ -733,6 +733,11 @@ export function setCameraOverviewEnabled(enabled) {
   return true;
 }
 
+export function zoomObjectiveCamera(multiplier) {
+  if (!orbitCam || !isObjectiveViewMain()) return false;
+  return orbitCam.zoomByFactor(multiplier);
+}
+
 // The main camera's pose in Urban ENU metres (east, north, up): where it is
 // and the point it looks at. Setting it stops following (a fixed view, e.g.
 // the same shot for several runs). The scene frame is X = East, Y = Up,

@@ -1,0 +1,59 @@
+{
+  "x500": {
+    "model": {
+      "model_path": "../assets/models/x500/x500-frame.glb",
+      "pos": [0, 0, 0],
+      "hpr": [0, 0, 0]
+    },
+    "rotors": [
+      {
+        "name": "drone_rotor1",
+        "model": {
+          "model_path": "../assets/models/base-drone-prop.glb",
+          "pos": [0, 0, 0],
+          "hpr": [0, 0, 0],
+          "scale": 0.858
+        },
+        "spinDirection": "ccw",
+        "pos": [0.1768, -0.1768, 0.02],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor2",
+        "model": {
+          "model_path": "../assets/models/base-drone-prop.glb",
+          "pos": [0, 0, 0],
+          "hpr": [0, 0, 0],
+          "scale": 0.858
+        },
+        "spinDirection": "ccw",
+        "pos": [-0.1768, 0.1768, 0.02],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor3",
+        "model": {
+          "model_path": "../assets/models/base-drone-prop.glb",
+          "pos": [0, 0, 0],
+          "hpr": [0, 0, 0],
+          "scale": 0.858
+        },
+        "spinDirection": "cw",
+        "pos": [0.1768, 0.1768, 0.02],
+        "hpr": [0, 0, 0]
+      },
+      {
+        "name": "drone_rotor4",
+        "model": {
+          "model_path": "../assets/models/base-drone-prop.glb",
+          "pos": [0, 0, 0],
+          "hpr": [0, 0, 0],
+          "scale": 0.858
+        },
+        "spinDirection": "cw",
+        "pos": [-0.1768, -0.1768, 0.02],
+        "hpr": [0, 0, 0]
+      }
+    ]
+  }
+}
