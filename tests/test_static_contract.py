@@ -160,7 +160,7 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn('runtimeOptions.attachedCameraPresentation === "main"', app)
         self.assertIn('e.key === "Tab"', app)
         self.assertIn("setObjectiveViewMain(!attachedCameraSwapped)", app)
-        self.assertIn("main_camera.initialMode must be follow, fixed, or overview", app)
+        self.assertIn("main_camera.initialMode must be follow, fixed, overview, or front", app)
         self.assertIn('e.code === "KeyF"', app)
         self.assertIn("getPrimaryAttachedCamera()", drone)
         self.assertIn("ui.attachedCameraPresentation must be overlay or main", viewer)
@@ -170,7 +170,11 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("viewer.setObjectiveViewMain(false)", index)
         self.assertIn('id="camera-zoom-in-btn"', index)
         self.assertIn('id="camera-zoom-out-btn"', index)
+        self.assertIn('id="camera-front-btn"', index)
+        self.assertIn('id="overview-inset-btn"', index)
         self.assertIn("viewer.zoomObjectiveCamera(0.8)", index)
+        self.assertIn("viewer.setFrontCameraEnabled(true)", index)
+        self.assertIn("viewer.setOverviewInsetEnabled(enabled)", index)
 
     def test_vehicle_front_camera_uses_the_shared_attached_camera_presentation(self) -> None:
         app = (ROOT / "src/app.js").read_text(encoding="utf-8")
@@ -236,6 +240,21 @@ class StaticViewerContractTest(unittest.TestCase):
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         self.assertIn("interpolation.enabled === true ? interpolation : null", source)
         self.assertIn("if (this.vehicleStateSource?.interpolation) this.applyVehicleStates();", viewer)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_fleet_pose_interpolation_is_optional_and_snaps_large_jumps(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/fleet_interpolation_check.mjs")],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        result = json.loads(output)
+        self.assertEqual(result["disabledX"], 2)
+        self.assertAlmostEqual(result["midpointX"], 1, places=6)
+        self.assertAlmostEqual(result["midpointYawDeg"], 45, places=6)
+        self.assertEqual(result["midpointPwm"], 0.8)
+        self.assertEqual(result["snappedX"], 5)
+        viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
+        self.assertIn("if (this.stateSource?.interpolation) this.applyDroneStates();", viewer)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed")
     def test_pose_interpolation_moves_an_uneven_stream_evenly(self) -> None:

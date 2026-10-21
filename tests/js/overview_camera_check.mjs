@@ -6,6 +6,7 @@ import {
   overviewRadius,
   clampOverviewZoom,
   updateOverviewZoom,
+  overviewInsetPose,
 } from "../../src/overview_camera.js";
 
 const positions = [[-3, 1, 0], [3, 1, 0], [0, 4, 0]];
@@ -23,5 +24,12 @@ assert.equal(updateOverviewZoom(1, 0.8), 0.8);
 assert.equal(updateOverviewZoom(0.2, 0.5), 0.2);
 assert.equal(updateOverviewZoom(5, 2), 5);
 assert.equal(clampOverviewZoom(2.5), 2.5);
+const inset = overviewInsetPose([[-5, 0, 0], [5, 0, 0]], 60, [1, 0, 0], {
+  minDistanceM: 0, marginM: 0,
+});
+assert.deepEqual(inset.target, [0, 0, 0]);
+assert.ok(inset.position[0] < 0); // behind eastbound subjects
+assert.ok(inset.position[1] > 0);
+assert.ok(Math.abs(Math.hypot(...inset.position) - inset.distance) < 1e-12);
 
 console.log(JSON.stringify({ centroid: overviewCentroid(positions), single, passed: true }));

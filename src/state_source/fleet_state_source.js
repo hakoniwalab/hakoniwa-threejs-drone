@@ -2,8 +2,14 @@ import { IStateSource } from "./i_state_source.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { pduToJs_DroneVisualStateArray } from "../../thirdparty/hakoniwa-pdu-javascript/src/pdu_msgs/hako_msgs/pdu_conv_DroneVisualStateArray.js";
 import { validateCompactPdudef, loadPdutypeTable, collectChannelsByPdutype } from "./compact_pdudef_loader.js";
+import { FleetPoseInterpolator } from "./fleet_pose_interpolator.js";
 
 const RAD2DEG = 180.0 / Math.PI;
+
+function frameTimeMsec() {
+  const frame = typeof document !== "undefined" ? document.timeline?.currentTime : null;
+  return Number.isFinite(frame) ? frame : performance.now();
+}
 
 export class FleetStateSource extends IStateSource {
   constructor(roleMap = {}, options = {}) {
@@ -16,6 +22,9 @@ export class FleetStateSource extends IStateSource {
     this.visualStateChannels = [];
     this.declared = false;
     this.lastInvalidPacketWarningMsec = 0;
+    const interpolation = options.interpolation ?? {};
+    this.interpolation = interpolation.enabled === true ? interpolation : null;
+    this.poseInterpolator = new FleetPoseInterpolator(interpolation);
   }
 
   async initialize({ pduDefPath } = {}) {
@@ -105,7 +114,7 @@ export class FleetStateSource extends IStateSource {
     return values.every((value) => Number.isFinite(value));
   }
 
-  applyPacket(packet) {
+  applyPacket(packet, nowMsec = frameTimeMsec()) {
     const sequenceId = packet?.sequence_id ?? 0;
     if (!Number.isFinite(sequenceId) || sequenceId === 0) {
       return;
@@ -129,6 +138,7 @@ export class FleetStateSource extends IStateSource {
       if (!this.isFiniteVisualState(drones[i])) continue;
       const state = this.convertVisualState(drones[i]);
       this.stateByDrone.set(droneId, state);
+      this.poseInterpolator.push(droneId, state, nowMsec);
     }
   }
 
@@ -157,12 +167,13 @@ export class FleetStateSource extends IStateSource {
     });
   }
 
-  getState(droneId) {
+  getState(droneId, nowMsec = frameTimeMsec()) {
     const s = this.stateByDrone.get(droneId);
     if (!s) return null;
+    const pose = this.poseInterpolator.sample(droneId, s, nowMsec);
     return {
-      rosPos: [...s.rosPos],
-      rosRpyDeg: [...s.rosRpyDeg],
+      rosPos: [...pose.rosPos],
+      rosRpyDeg: [...pose.rosRpyDeg],
       pwmDuty: [...(s.pwmDuty ?? [])],
       rotorSpeedRadPerSec: s.rotorSpeedRadPerSec,
       rotorSpeedsRadPerSec: [...(s.rotorSpeedsRadPerSec ?? [])],
@@ -172,6 +183,7 @@ export class FleetStateSource extends IStateSource {
   async dispose() {
     this.boundDroneIds = [];
     this.stateByDrone.clear();
+    this.poseInterpolator.clear();
     this.declared = false;
   }
 }

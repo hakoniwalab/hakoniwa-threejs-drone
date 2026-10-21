@@ -38,3 +38,21 @@ export function overviewFrame(positions, fovDeg, options) {
   const radius = overviewRadius(positions, centroid);
   return { centroid, radius, distance: overviewDistance(radius, fovDeg, options) };
 }
+
+export function overviewInsetPose(positions, fovDeg, travelDirection = null, options = {}) {
+  const frame = overviewFrame(positions, fovDeg, options);
+  if (!frame) return null;
+  // Behind the group, looking down by 50 degrees. With no motion, "behind"
+  // defaults to scene south (+Z; scene north is -Z).
+  const direction = travelDirection && Math.hypot(...travelDirection) > 1e-9
+    ? travelDirection.map((value) => value / Math.hypot(...travelDirection))
+    : [0, 0, -1];
+  const elevation = 50 * Math.PI / 180;
+  const horizontal = Math.cos(elevation) * frame.distance;
+  const position = [
+    frame.centroid[0] - direction[0] * horizontal,
+    frame.centroid[1] + Math.sin(elevation) * frame.distance,
+    frame.centroid[2] - direction[2] * horizontal,
+  ];
+  return { ...frame, position, target: [...frame.centroid], direction };
+}

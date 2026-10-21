@@ -61,7 +61,23 @@
         }
       }
     },
-    "main_camera": { "type": "object" },
+    "main_camera": {
+      "type": "object",
+      "properties": {
+        "initialMode": { "enum": ["follow", "fixed", "overview", "front"] },
+        "front": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "aheadM": { "type": "number", "minimum": 0 },
+            "upM": { "type": "number", "minimum": 0 },
+            "lookBackM": { "type": "number", "minimum": 0 },
+            "dropM": { "type": "number", "minimum": 0 },
+            "leads": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          }
+        }
+      }
+    },
     "droneTypesPath": { "type": "string", "minLength": 1 },
     "drones": {
       "type": "array",

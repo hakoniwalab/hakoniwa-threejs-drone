@@ -16,6 +16,7 @@ export class StateSourceFactory {
       return new FleetStateSource(input.roleMap, {
         motorChannels: input.motorChannels,
         rotorScale: input.rotorScale,
+        interpolation: input.interpolation,
       });
     }
     throw new Error(`[StateSourceFactory] unsupported mode: ${mode}`);
