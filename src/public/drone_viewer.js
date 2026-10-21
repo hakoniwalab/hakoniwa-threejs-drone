@@ -1,4 +1,4 @@
-import { main, getDrones, getVehicles, addSceneDecoration, removeSceneDecoration, findSceneObjects, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setCameraOverviewEnabled, zoomObjectiveCamera, setObjectiveViewMain, isObjectiveViewMain, getCameraViewState, setCameraPose, getCameraPose, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
+import { main, getDrones, getVehicles, addSceneDecoration, removeSceneDecoration, findSceneObjects, focusDroneById, setBeforeDronesUpdateHook, setViewerRuntimeOptions, setCameraFollowEnabled, setCameraOverviewEnabled, setFrontCameraEnabled, setOverviewInsetEnabled, zoomObjectiveCamera, setObjectiveViewMain, isObjectiveViewMain, getCameraViewState, setCameraPose, getCameraPose, setAudienceCameraEnabled, getAudienceCameraState, getCameraHeadingState, setAudienceCameraMovementInput, setAudienceCameraPose, setNightMode, getNightMode, setNightLighting, getNightLighting, setDroneLedStates, setDroneLedAppearance } from "../app.js";
 import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
@@ -134,6 +134,25 @@ function validateViewerConfig(config) {
       }
     }
   }
+  for (const [path, interpolation] of [
+    ["stateInput.fleets.interpolation", config.stateInput?.fleets?.interpolation],
+    ["stateInput.vehicles.interpolation", config.stateInput?.vehicles?.interpolation],
+  ]) {
+    if (interpolation == null) continue;
+    if (interpolation.enabled != null && typeof interpolation.enabled !== "boolean") {
+      throw new Error(`[DroneViewer] ${path}.enabled must be boolean.`);
+    }
+    for (const key of ["periodMsec", "snapDistanceM"]) {
+      if (interpolation[key] != null
+        && (!Number.isFinite(interpolation[key]) || interpolation[key] <= 0)) {
+        throw new Error(`[DroneViewer] ${path}.${key} must be a positive finite number.`);
+      }
+    }
+    if (interpolation.delayMsec != null
+      && (!Number.isFinite(interpolation.delayMsec) || interpolation.delayMsec < 0)) {
+      throw new Error(`[DroneViewer] ${path}.delayMsec must be a non-negative finite number.`);
+    }
+  }
   const vehicles = config.stateInput?.vehicles;
   if (vehicles != null) {
     if (!vehicles.roleMap?.vehicle_states || !vehicles.roleMap?.joint_states) {
@@ -162,6 +181,9 @@ function validateViewerConfig(config) {
   }
   if (config.ui?.enableMainCameraMouseControl != null && typeof config.ui.enableMainCameraMouseControl !== "boolean") {
     throw new Error("[DroneViewer] ui.enableMainCameraMouseControl must be boolean.");
+  }
+  if (config.ui?.overviewInset != null && typeof config.ui.overviewInset !== "boolean") {
+    throw new Error("[DroneViewer] ui.overviewInset must be boolean.");
   }
 }
 
@@ -226,6 +248,7 @@ export class DroneViewer {
       transparentBackground: this.viewerConfig?.three?.transparentBackground,
       attachedCameraPresentation: this.viewerConfig?.ui?.attachedCameraPresentation,
       initialMainView: this.viewerConfig?.ui?.initialMainView,
+      overviewInset: this.viewerConfig?.ui?.overviewInset ?? false,
     });
     const fleetOptions = this.viewerConfig?.stateInput?.fleets ?? {};
     await main(resolvedSceneConfigPath, {
@@ -240,6 +263,7 @@ export class DroneViewer {
     if (!this.syncHookInstalled) {
       setBeforeDronesUpdateHook((dt) => {
         this.recordTrails();
+        if (this.stateSource?.interpolation) this.applyDroneStates();
         // Interpolated vehicles move every frame; PDU reads stay throttled.
         if (this.vehicleStateSource?.interpolation) this.applyVehicleStates();
         const intervalMsec = this.viewerConfig?.ui?.statePanelIntervalMsec ?? 100;
@@ -339,6 +363,16 @@ export class DroneViewer {
     }
   }
 
+  applyDroneStates() {
+    if (!this.stateSource || !this.renderManager) return;
+    const statesByDroneId = new Map();
+    for (const drone of getDrones()) {
+      const state = this.stateSource.getState(drone.droneId);
+      if (state) statesByDroneId.set(String(drone.droneId), state);
+    }
+    this.renderManager.applyStates(statesByDroneId);
+  }
+
   async syncDroneStates() {
     if (!this.stateSource && !this.vehicleStateSource) return;
     if (this.syncInFlight) {
@@ -347,14 +381,7 @@ export class DroneViewer {
     this.syncInFlight = (async () => {
       if (this.stateSource) {
         await this.stateSource.update();
-        if (this.renderManager) {
-          const statesByDroneId = new Map();
-          for (const drone of getDrones()) {
-            const state = this.stateSource.getState(drone.droneId);
-            if (state) statesByDroneId.set(String(drone.droneId), state);
-          }
-          this.renderManager.applyStates(statesByDroneId);
-        }
+        this.applyDroneStates();
       }
       if (this.vehicleStateSource) {
         await this.vehicleStateSource.update();
@@ -412,6 +439,14 @@ export class DroneViewer {
 
   setOverviewEnabled(enabled) {
     return setCameraOverviewEnabled(!!enabled);
+  }
+
+  setFrontCameraEnabled(enabled, options = {}) {
+    return setFrontCameraEnabled(!!enabled, options);
+  }
+
+  setOverviewInsetEnabled(enabled) {
+    return setOverviewInsetEnabled(!!enabled);
   }
 
   zoomObjectiveCamera(multiplier) {

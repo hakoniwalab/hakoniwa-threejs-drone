@@ -111,6 +111,10 @@
           "type": "string",
           "enum": ["attached", "objective"],
           "default": "attached"
+        },
+        "overviewInset": {
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -319,6 +323,16 @@
               "type": "integer",
               "minimum": 1
             },
+            "interpolation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "periodMsec": { "type": "number", "exclusiveMinimum": 0 },
+                "delayMsec": { "type": "number", "minimum": 0 },
+                "snapDistanceM": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 }
+              }
+            },
             "roleMap": {
               "type": "object",
               "additionalProperties": false,
@@ -339,6 +353,16 @@
           "additionalProperties": false,
           "required": ["roleMap"],
           "properties": {
+            "interpolation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "periodMsec": { "type": "number", "exclusiveMinimum": 0 },
+                "delayMsec": { "type": "number", "minimum": 0 },
+                "snapDistanceM": { "type": "number", "exclusiveMinimum": 0, "default": 2.0 }
+              }
+            },
             "roleMap": {
               "type": "object",
               "additionalProperties": false,

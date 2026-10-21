@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { HakoniwaFrame } from "./frame.js";
 import { createGltfLoader, loadConfig } from "./loader.js";
 import { OrbitCamera } from "./orbit_camera.js";
+import { OverviewInsetCamera } from "./overview_inset_camera.js";
 import { AudienceCamera } from "./audience_camera.js";
 import { buildEnvironments } from './environment.js';
 import { Drone } from "./drone.js";
@@ -22,6 +23,8 @@ const loader = createGltfLoader(THREE);
 
 let orbitCam = null;
 let audienceCam = null;
+let overviewInsetCam = null;
+let frontLeadNames = null;
 let orbitCameraSnapshot = null;
 let drones = [];
 let vehicles = [];
@@ -37,6 +40,7 @@ const runtimeOptions = {
   transparentBackground: false,
   attachedCameraPresentation: "overlay",
   initialMainView: "attached",
+  overviewInset: false,
 };
 let attachedCameraSwapped = false;
 let attachedCameraPipVisible = true;
@@ -46,6 +50,12 @@ let cameraLabelTimer = null;
 
 function cameraEntities() {
   return [...drones, ...vehicles].filter((entity) => entity.getPrimaryAttachedCamera());
+}
+
+function frontCameraTargets() {
+  if (!Array.isArray(frontLeadNames) || frontLeadNames.length === 0) return drones;
+  return drones.filter((drone) => frontLeadNames.includes(drone.droneId)
+    || frontLeadNames.includes(drone.name) || frontLeadNames.includes(drone.cfg?.name));
 }
 
 function selectedCameraEntity() {
@@ -193,6 +203,7 @@ export function setViewerRuntimeOptions(options = {}) {
     }
     runtimeOptions.initialMainView = options.initialMainView;
   }
+  if (typeof options.overviewInset === "boolean") runtimeOptions.overviewInset = options.overviewInset;
   if (options.attachedCameraPresentation != null || options.initialMainView != null) {
     attachedCameraSwapped = runtimeOptions.initialMainView === "objective";
   }
@@ -657,8 +668,9 @@ export async function main(
   // Main camera 設定
   if (cfg.main_camera) {
     const mc = cfg.main_camera;
-    if (mc.initialMode != null && !["follow", "fixed", "overview"].includes(mc.initialMode)) {
-      throw new TypeError("[Hakoniwa] main_camera.initialMode must be follow, fixed, or overview.");
+    frontLeadNames = Array.isArray(mc.front?.leads) ? [...mc.front.leads] : null;
+    if (mc.initialMode != null && !["follow", "fixed", "overview", "front"].includes(mc.initialMode)) {
+      throw new TypeError("[Hakoniwa] main_camera.initialMode must be follow, fixed, overview, or front.");
     }
 
     // ROS オフセット -> Three ベクトル
@@ -690,17 +702,27 @@ export async function main(
       overviewTargets: () => [...drones, ...vehicles],
       overviewMinDistanceM: mc.overview?.minDistanceM ?? 15,
       overviewMarginM: mc.overview?.marginM ?? 5,
+      frontTargets: frontCameraTargets,
+      front: mc.front ?? {},
       mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
 
   } else {
+    frontLeadNames = null;
     orbitCam = new OrbitCamera(renderer, {
       overviewTargets: () => [...drones, ...vehicles],
+      frontTargets: frontCameraTargets,
       mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
   }
 
   scene.add(orbitCam.entity.object3d);
+  overviewInsetCam = new OverviewInsetCamera({
+    fov: orbitCam.camera.fov,
+    near: orbitCam.camera.near,
+    far: orbitCam.camera.far,
+    targets: () => [...drones, ...vehicles],
+  });
   dispatchCameraViewChange();
   if (audienceCamera) {
     audienceCam = new AudienceCamera(orbitCam.camera, renderer.domElement, audienceCamera);
@@ -733,6 +755,23 @@ export function setCameraFollowEnabled(enabled) {
 export function setCameraOverviewEnabled(enabled) {
   if (!orbitCam) return false;
   orbitCam.setMode(enabled ? "overview" : "follow");
+  return true;
+}
+
+export function setFrontCameraEnabled(enabled, options = {}) {
+  if (!orbitCam) return false;
+  if (options && Object.keys(options).length) {
+    for (const key of ["aheadM", "upM", "lookBackM", "dropM"]) {
+      if (Number.isFinite(options[key]) && options[key] >= 0) orbitCam.frontOptions[key] = options[key];
+    }
+    if (Array.isArray(options.leads)) frontLeadNames = [...options.leads];
+  }
+  orbitCam.setMode(enabled ? "front" : "follow");
+  return true;
+}
+
+export function setOverviewInsetEnabled(enabled) {
+  runtimeOptions.overviewInset = !!enabled;
   return true;
 }
 
@@ -794,6 +833,7 @@ function animate() {
   if (orbitCam) {
     if (audienceCam?.enabled) audienceCam.update(dt);
     else orbitCam.update(dt);
+    if (runtimeOptions.overviewInset) overviewInsetCam?.update(dt);
 
     const w = container.clientWidth;
     const h = container.clientHeight;
@@ -832,6 +872,25 @@ function animate() {
       // Only the selected entity's windows: several entities may use the same
       // corner, and drawing them all hid the one the user wants to see.
       selectedEntity.renderAttachedCameras(renderer, scene, w, h);
+    }
+    if (runtimeOptions.overviewInset && overviewInsetCam?.initialized) {
+      const pipW = Math.max(1, Math.floor(w * 0.30));
+      const pipH = Math.max(1, Math.floor(h * 0.27));
+      const pipX = Math.floor(w * 0.68);
+      const pipY = Math.floor(h * 0.72);
+      overviewInsetCam.camera.aspect = pipW / pipH;
+      overviewInsetCam.camera.updateProjectionMatrix();
+      renderer.setScissorTest(true);
+      renderer.setViewport(pipX - 2, pipY - 2, pipW + 4, pipH + 4);
+      renderer.setScissor(pipX - 2, pipY - 2, pipW + 4, pipH + 4);
+      renderer.setClearColor(0x334155, 1);
+      renderer.clear(true, true, false);
+      renderer.setViewport(pipX, pipY, pipW, pipH);
+      renderer.setScissor(pipX, pipY, pipW, pipH);
+      renderer.clearDepth();
+      renderer.render(scene, overviewInsetCam.camera);
+      renderer.setScissorTest(false);
+      applyLighting(nightMode);
     }
   }
 }

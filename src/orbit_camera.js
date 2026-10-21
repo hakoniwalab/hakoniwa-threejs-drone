@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RenderEntity } from "./render_entity.js";
 import { overviewFrame, updateOverviewZoom } from "./overview_camera.js";
+import { FrontDirectionTracker, frontCameraFrame, updateFrontZoom } from "./front_camera.js";
 
 const MIN_FOLLOW_DISTANCE_M = 1;
 const MAX_FOLLOW_DISTANCE_M = 500;
@@ -29,6 +30,8 @@ export class OrbitCamera {
       overviewMinDistanceM = 15,
       overviewMarginM = 5,
       overviewToggleKey = "o",
+      frontTargets = () => [],
+      front = {},
       mouseEnabled = true,
     } = options;
 
@@ -67,6 +70,15 @@ export class OrbitCamera {
     this.overviewMarginM = overviewMarginM;
     this.overviewToggleKey = overviewToggleKey;
     this.overviewZoom = 1.0;
+    this.frontTargets = frontTargets;
+    this.frontOptions = {
+      aheadM: front.aheadM ?? 6,
+      upM: front.upM ?? 1,
+      lookBackM: front.lookBackM ?? 12,
+      dropM: front.dropM ?? 1.5,
+    };
+    this.frontZoom = 1.0;
+    this.frontDirectionTracker = new FrontDirectionTracker();
 
     // 初期距離（position と target の距離）
     const initDist = this.camera.position.distanceTo(this.controls.target);
@@ -91,7 +103,7 @@ export class OrbitCamera {
     this.controls.addEventListener("start", () => { this._userOrbiting = true; });
     this.controls.addEventListener("end", () => { this._userOrbiting = false; });
     this._onWheel = (event) => {
-      if (!this._mouseControlEnabled || (this.mode !== "follow" && this.mode !== "overview")) return;
+      if (!this._mouseControlEnabled || !["follow", "overview", "front"].includes(this.mode)) return;
       event.preventDefault();
       this.zoomByFactor(Math.exp(event.deltaY * WHEEL_ZOOM_RATE));
     };
@@ -114,13 +126,14 @@ export class OrbitCamera {
   }
 
   setMode(mode) {
-    if (mode !== "follow" && mode !== "fixed" && mode !== "overview") return;
+    if (!['follow', 'fixed', 'overview', 'front'].includes(mode)) return;
     if (mode === "follow" && this.mode !== "follow") this._captureFollowDir();
     if (mode === "overview" && this.mode !== "overview") {
       this._captureOverviewDir();
       // Each overview session starts with automatic framing; subsequent zoom persists.
       this.overviewZoom = 1.0;
     }
+    if (mode === "front" && this.mode !== "front") this.frontZoom = 1.0;
     this.mode = mode;
     // Follow/overview distances are stateful; fixed mode uses OrbitControls' dolly.
     this.controls.enableZoom = mode === "fixed";
@@ -166,6 +179,10 @@ export class OrbitCamera {
     return Math.atan2(-forward.x, -forward.z);
   }
   update(dt) {
+    if (this.mode === "front") {
+      this._updateFront(dt);
+      return;
+    }
     if (this.mode === "overview") {
       this._updateOverview(dt);
       return;
@@ -251,6 +268,39 @@ export class OrbitCamera {
     this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
   }
 
+  _updateFront(dt) {
+    const targets = this.frontTargets?.() ?? [];
+    const positions = [];
+    const headings = [];
+    for (const target of targets) {
+      if (!target?.getWorldPosition) continue;
+      const position = target.getWorldPosition(new THREE.Vector3());
+      positions.push([position.x, position.y, position.z]);
+      const object = target.root?.object3d ?? target.root ?? target.object3d;
+      if (object?.getWorldQuaternion) {
+        object.getWorldQuaternion(this._tmpQuat);
+        const heading = new THREE.Vector3(0, 0, -1).applyQuaternion(this._tmpQuat);
+        headings.push([heading.x, heading.y, heading.z]);
+      }
+    }
+    if (!positions.length) return;
+    this.camera.getWorldDirection(this._tmpDir);
+    const direction = this.frontDirectionTracker.update(
+      positions, dt, headings, [this._tmpDir.x, this._tmpDir.y, this._tmpDir.z],
+    );
+    const frame = frontCameraFrame(positions, direction, {
+      ...this.frontOptions,
+      zoom: this.frontZoom,
+    });
+    const alphaPos = 1 - Math.exp(-this.followLerpPos * dt);
+    const alphaTarget = 1 - Math.exp(-this.followLerpTarget * dt);
+    this._tmpDesiredPos.set(...frame.position);
+    this._tmpTarget.set(...frame.target);
+    this.camera.position.lerp(this._tmpDesiredPos, alphaPos);
+    this.controls.target.lerp(this._tmpTarget, alphaTarget);
+    this.camera.lookAt(this.controls.target);
+  }
+
   zoomByFactor(multiplier) {
     if (!Number.isFinite(multiplier) || multiplier <= 0) return false;
     if (this.mode === "follow") {
@@ -263,6 +313,10 @@ export class OrbitCamera {
     }
     if (this.mode === "overview") {
       this.overviewZoom = updateOverviewZoom(this.overviewZoom, multiplier);
+      return true;
+    }
+    if (this.mode === "front") {
+      this.frontZoom = updateFrontZoom(this.frontZoom, multiplier);
       return true;
     }
     return false;

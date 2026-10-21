@@ -68,7 +68,7 @@ threejs 表示用の scene config は compact 形式のみを対象とする。
 - `near` (number, default: `0.1`)
 - `far` (number, default: `1000`)
 - `position` ([number, number, number]): ROS座標系オフセット
-- `initialMode` (`"follow" | "fixed" | "overview"`, default: `"follow"`): Orbit camera の初期モード。`overview` は全ドローン・車両を収める
+- `initialMode` (`"follow" | "fixed" | "overview" | "front"`, default: `"follow"`): `front`は最前ドローンの前から後方を見る
 - `followDistance` (number|null, default: `null`)
 - `followLerpPos` (number, default: `8.0`)
 - `followLerpTarget` (number, default: `10.0`)
@@ -76,6 +76,9 @@ threejs 表示用の scene config は compact 形式のみを対象とする。
 - `followHeading` (boolean, default: `false`): `true` で追従方向を対象の向き（yaw）に合わせて回す。`position` を対象の後ろ上に置くと、車の後方追従カメラになる
 - `overview.minDistanceM` (number, default: `15`): 全体表示の最小カメラ距離
 - `overview.marginM` (number, default: `5`): 全体表示の包含球に加える余白
+- `front.aheadM` / `front.upM` (number, defaults: `6` / `1.0`): 最前ドローンから前方・上方への距離
+- `front.lookBackM` / `front.dropM` (number, defaults: `12` / `1.5`): アンカー後方の注視距離と高さの下げ幅
+- `front.leads` (string[], optional): 先頭判定と平均進行方向に使うドローン名。省略時は全ドローン
 
 備考:
 - 現在実装では `target` よりも「先頭ドローン追従」が優先される

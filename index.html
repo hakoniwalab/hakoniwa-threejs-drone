@@ -252,9 +252,11 @@
           <strong style="font-size: 12px; margin-right: 2px;">視点</strong>
           <button id="camera-driver-btn" type="button" aria-pressed="false" hidden>運転席</button>
           <button id="camera-follow-btn" type="button" aria-pressed="true">追従</button>
+          <button id="camera-front-btn" type="button" aria-pressed="false">前方</button>
           <button id="camera-overview-btn" type="button" aria-pressed="false">全体</button>
           <button id="camera-zoom-in-btn" type="button" aria-label="拡大">＋</button>
           <button id="camera-zoom-out-btn" type="button" aria-label="縮小">−</button>
+          <button id="overview-inset-btn" type="button" aria-pressed="false">全体を小窓に</button>
         </div>
       </div>
 
@@ -359,9 +361,11 @@
       const followCheckbox = document.getElementById("follow-checkbox");
       const cameraDriverBtn = document.getElementById("camera-driver-btn");
       const cameraFollowBtn = document.getElementById("camera-follow-btn");
+      const cameraFrontBtn = document.getElementById("camera-front-btn");
       const cameraOverviewBtn = document.getElementById("camera-overview-btn");
       const cameraZoomInBtn = document.getElementById("camera-zoom-in-btn");
       const cameraZoomOutBtn = document.getElementById("camera-zoom-out-btn");
+      const overviewInsetBtn = document.getElementById("overview-inset-btn");
       const wsUriInput = document.getElementById('ws-uri-input');
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
@@ -660,11 +664,12 @@
         };
         setActive(cameraDriverBtn, showDriver && !objectiveViewMain);
         setActive(cameraFollowBtn, objectiveViewMain && mode === "follow");
+        setActive(cameraFrontBtn, objectiveViewMain && mode === "front");
         setActive(cameraOverviewBtn, objectiveViewMain && mode === "overview");
-        const zoomDisabled = !objectiveViewMain || (mode !== "follow" && mode !== "overview");
+        const zoomDisabled = !objectiveViewMain || !["follow", "front", "overview"].includes(mode);
         cameraZoomInBtn.disabled = zoomDisabled;
         cameraZoomOutBtn.disabled = zoomDisabled;
-        if (followCheckbox && (mode === "follow" || mode === "fixed" || mode === "overview")) {
+        if (followCheckbox && ["follow", "fixed", "front", "overview"].includes(mode)) {
           followCheckbox.checked = mode === "follow";
         }
       }
@@ -736,6 +741,11 @@
             wsUriInput.value = config.pdu.wsUri;
           }
           await viewer.initialize();
+          if (overviewInsetBtn && config.ui?.overviewInset === true) {
+            overviewInsetBtn.setAttribute("aria-pressed", "true");
+            overviewInsetBtn.style.fontWeight = "bold";
+            overviewInsetBtn.style.background = "#dbeafe";
+          }
           populateDroneSelect();
           validateScenarioPanel(config.scenarioPanel);
           setupScenarioBox(config);
@@ -924,6 +934,19 @@
         if (followCheckbox) followCheckbox.checked = false;
         viewer.setOverviewEnabled(true);
         showCameraMode("overview");
+      });
+      cameraFrontBtn?.addEventListener("click", () => {
+        viewer.setObjectiveViewMain(true);
+        if (followCheckbox) followCheckbox.checked = false;
+        viewer.setFrontCameraEnabled(true);
+        showCameraMode("front");
+      });
+      overviewInsetBtn?.addEventListener("click", () => {
+        const enabled = overviewInsetBtn.getAttribute("aria-pressed") !== "true";
+        viewer.setOverviewInsetEnabled(enabled);
+        overviewInsetBtn.setAttribute("aria-pressed", String(enabled));
+        overviewInsetBtn.style.fontWeight = enabled ? "bold" : "normal";
+        overviewInsetBtn.style.background = enabled ? "#dbeafe" : "";
       });
       cameraZoomInBtn?.addEventListener("click", () => viewer.zoomObjectiveCamera(0.8));
       cameraZoomOutBtn?.addEventListener("click", () => viewer.zoomObjectiveCamera(1.25));

@@ -110,6 +110,8 @@ viewer.getDrones()
 viewer.getDroneStates(): DroneState[]
 viewer.focusDroneById(id): boolean
 viewer.setFollowSelectedEnabled(enabled): boolean
+viewer.setFrontCameraEnabled(enabled, options?): boolean
+viewer.setOverviewInsetEnabled(enabled): boolean
 ```
 
 補足:

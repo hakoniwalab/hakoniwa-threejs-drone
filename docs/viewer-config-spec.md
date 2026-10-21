@@ -102,6 +102,13 @@ v1.0 では以下を外部仕様にします。
   - `roleMap` (`object`, 必須)
     - `visual_state_array` (`string`, 必須): 集約状態配列用 pdutype
 
+`stateInput.fleets.interpolation`（任意）：各ドローンの位置と姿勢を受信姿勢間で毎フレーム補間する。PWM/ローター値は最新の受信値を使う。
+
+- `enabled` (`boolean`, 既定: `false`)
+- `periodMsec` (`number`, 任意): 送り手の周期（例: `20`）
+- `delayMsec` (`number`, 任意): 最新姿勢からの表示遅延。省略時は周期の1.5倍
+- `snapDistanceM` (`number`, 任意, 既定: `2.0`): これより長い移動は補間せず即座に置く
+
 #### 車両状態入力（任意）
 
 `stateInput.vehicles.roleMap`を指定すると、ドローンmodeとは独立して車両を更新する。
@@ -148,6 +155,8 @@ v1.0 では以下を外部仕様にします。
 - `initialMainView` (`"attached" | "objective"`, 任意, 既定: `"attached"`)
   - `attachedCameraPresentation: "main"` の開始時に、`attached` は運転席を、`objective` はOrbit cameraをメイン表示する
   - メインカメラ（OrbitControls）のマウス操作を有効化する
+- `overviewInset` (`boolean`, 任意, 既定: `false`)
+  - 右上に、メインカメラから独立した全体表示の小窓を表示する
 
 ### 3.6 `pdu.autoConnect`（任意）
 
