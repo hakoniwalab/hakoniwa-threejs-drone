@@ -159,9 +159,15 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn('attachedCameraPresentation: "overlay"', app)
         self.assertIn('runtimeOptions.attachedCameraPresentation === "main"', app)
         self.assertIn('e.key === "Tab"', app)
+        self.assertIn("setObjectiveViewMain(!attachedCameraSwapped)", app)
+        self.assertIn("main_camera.initialMode must be follow, fixed, or overview", app)
         self.assertIn('e.code === "KeyF"', app)
         self.assertIn("getPrimaryAttachedCamera()", drone)
         self.assertIn("ui.attachedCameraPresentation must be overlay or main", viewer)
+        self.assertIn("ui.initialMainView must be attached or objective", viewer)
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="camera-driver-btn"', index)
+        self.assertIn("viewer.setObjectiveViewMain(false)", index)
 
     def test_vehicle_front_camera_uses_the_shared_attached_camera_presentation(self) -> None:
         app = (ROOT / "src/app.js").read_text(encoding="utf-8")

@@ -36,6 +36,7 @@ const runtimeOptions = {
   enableMainCameraMouseControl: true,
   transparentBackground: false,
   attachedCameraPresentation: "overlay",
+  initialMainView: "attached",
 };
 let attachedCameraSwapped = false;
 let attachedCameraPipVisible = true;
@@ -50,6 +51,21 @@ function cameraEntities() {
 function selectedCameraEntity() {
   const entities = cameraEntities();
   return entities.length ? entities[attachedCameraIndex % entities.length] : null;
+}
+
+function dispatchCameraViewChange() {
+  window.dispatchEvent(new CustomEvent("hakoniwa-camera-mode-change", {
+    detail: getCameraViewState(),
+  }));
+}
+
+export function getCameraViewState() {
+  return {
+    mode: orbitCam?.mode ?? null,
+    objectiveViewMain: isObjectiveViewMain(),
+    hasAttachedCamera: cameraEntities().length > 0,
+    attachedCameraPresentation: runtimeOptions.attachedCameraPresentation,
+  };
 }
 
 function entityLabel(entity) {
@@ -169,12 +185,33 @@ export function setViewerRuntimeOptions(options = {}) {
       throw new TypeError("[HakoniwaViewer] attachedCameraPresentation must be overlay or main.");
     }
     runtimeOptions.attachedCameraPresentation = options.attachedCameraPresentation;
-    attachedCameraSwapped = false;
     attachedCameraPipVisible = true;
+  }
+  if (options.initialMainView != null) {
+    if (!["attached", "objective"].includes(options.initialMainView)) {
+      throw new TypeError("[HakoniwaViewer] initialMainView must be attached or objective.");
+    }
+    runtimeOptions.initialMainView = options.initialMainView;
+  }
+  if (options.attachedCameraPresentation != null || options.initialMainView != null) {
+    attachedCameraSwapped = runtimeOptions.initialMainView === "objective";
   }
   if (orbitCam && !audienceCam?.enabled) {
     orbitCam.setMouseControlEnabled(runtimeOptions.enableMainCameraMouseControl);
   }
+}
+
+export function setObjectiveViewMain(enabled) {
+  if (runtimeOptions.attachedCameraPresentation !== "main" || cameraEntities().length === 0) return false;
+  attachedCameraSwapped = !!enabled;
+  dispatchCameraViewChange();
+  return true;
+}
+
+export function isObjectiveViewMain() {
+  return runtimeOptions.attachedCameraPresentation !== "main"
+    || cameraEntities().length === 0
+    || attachedCameraSwapped;
 }
 
 export function setAudienceCameraEnabled(enabled) {
@@ -617,6 +654,9 @@ export async function main(
   // Main camera 設定
   if (cfg.main_camera) {
     const mc = cfg.main_camera;
+    if (mc.initialMode != null && !["follow", "fixed", "overview"].includes(mc.initialMode)) {
+      throw new TypeError("[Hakoniwa] main_camera.initialMode must be follow, fixed, or overview.");
+    }
 
     // ROS オフセット -> Three ベクトル
     const offsetRos = mc.position ?? [0, 0, 0];
@@ -644,16 +684,21 @@ export async function main(
       followLerpTarget: mc.followLerpTarget ?? 10.0,
       followToggleKey: mc.followToggleKey ?? "c",
       followHeading: mc.followHeading ?? false,
+      overviewTargets: () => [...drones, ...vehicles],
+      overviewMinDistanceM: mc.overview?.minDistanceM ?? 15,
+      overviewMarginM: mc.overview?.marginM ?? 5,
       mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
 
   } else {
     orbitCam = new OrbitCamera(renderer, {
+      overviewTargets: () => [...drones, ...vehicles],
       mouseEnabled: runtimeOptions.enableMainCameraMouseControl,
     });
   }
 
   scene.add(orbitCam.entity.object3d);
+  dispatchCameraViewChange();
   if (audienceCamera) {
     audienceCam = new AudienceCamera(orbitCam.camera, renderer.domElement, audienceCamera);
     if (initialCameraMode === "audience") setAudienceCameraEnabled(true);
@@ -679,6 +724,12 @@ export function focusDroneById(droneId, { snap = true } = {}) {
 export function setCameraFollowEnabled(enabled) {
   if (!orbitCam) return false;
   orbitCam.setMode(enabled ? "follow" : "fixed");
+  return true;
+}
+
+export function setCameraOverviewEnabled(enabled) {
+  if (!orbitCam) return false;
+  orbitCam.setMode(enabled ? "overview" : "follow");
   return true;
 }
 
@@ -799,7 +850,7 @@ window.addEventListener("keydown", (e) => {
   }
   if (!e.repeat && runtimeOptions.attachedCameraPresentation === "main") {
     if (e.key === "Tab") {
-      attachedCameraSwapped = !attachedCameraSwapped;
+      setObjectiveViewMain(!attachedCameraSwapped);
       e.preventDefault();
     }
   }

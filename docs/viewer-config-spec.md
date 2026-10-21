@@ -145,6 +145,8 @@ v1.0 では以下を外部仕様にします。
   - `main`: 最初のattached cameraをメイン、Orbit cameraを左上PiPへ表示
   - `main`では`Tab`で主・副画面を交換する
   - `F`は`main`と`overlay`の両方で、PiPと追加カメラをまとめて表示・非表示にする
+- `initialMainView` (`"attached" | "objective"`, 任意, 既定: `"attached"`)
+  - `attachedCameraPresentation: "main"` の開始時に、`attached` は運転席を、`objective` はOrbit cameraをメイン表示する
   - メインカメラ（OrbitControls）のマウス操作を有効化する
 
 ### 3.6 `pdu.autoConnect`（任意）

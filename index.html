@@ -247,6 +247,12 @@
           <input type="checkbox" id="follow-checkbox" checked>
           Follow selected
         </label>
+        <div style="margin-top: 5px; display: flex; align-items: center; gap: 4px;">
+          <strong style="font-size: 12px; margin-right: 2px;">視点</strong>
+          <button id="camera-driver-btn" type="button" aria-pressed="false" hidden>運転席</button>
+          <button id="camera-follow-btn" type="button" aria-pressed="true">追従</button>
+          <button id="camera-overview-btn" type="button" aria-pressed="false">全体</button>
+        </div>
       </div>
 
       <div class="prop-box drone-only">
@@ -348,6 +354,9 @@
       const connectBtn = document.getElementById('connect-btn');
       const droneSelect = document.getElementById("drone-select");
       const followCheckbox = document.getElementById("follow-checkbox");
+      const cameraDriverBtn = document.getElementById("camera-driver-btn");
+      const cameraFollowBtn = document.getElementById("camera-follow-btn");
+      const cameraOverviewBtn = document.getElementById("camera-overview-btn");
       const wsUriInput = document.getElementById('ws-uri-input');
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
@@ -607,6 +616,7 @@
 
       function populateDroneSelect() {
         const drones = getDronesFromViewer();
+        const vehicles = viewer.getVehicles();
 
         // 一旦クリア
         droneSelect.innerHTML = "";
@@ -621,8 +631,33 @@
 
           droneSelect.appendChild(opt);
         });
+        vehicles.forEach((vehicle, index) => {
+          const opt = document.createElement("option");
+          opt.value = vehicle.vehicleId ?? index;
+          opt.textContent = vehicle.name ?? vehicle.cfg?.name ?? vehicle.vehicleId ?? `Vehicle-${index + 1}`;
+          droneSelect.appendChild(opt);
+        });
         if (droneSelect.options.length > 0 && droneSelect.selectedIndex < 0) {
           droneSelect.selectedIndex = 0;
+        }
+      }
+      function showCameraMode(mode, detail = {}) {
+        const objectiveViewMain = detail.objectiveViewMain ?? viewer.isObjectiveViewMain();
+        const showDriver = detail.attachedCameraPresentation == null
+          ? !cameraDriverBtn.hidden
+          : detail.attachedCameraPresentation === "main" && detail.hasAttachedCamera;
+        cameraDriverBtn.hidden = !showDriver;
+        const setActive = (button, active) => {
+          if (!button) return;
+          button.setAttribute("aria-pressed", String(active));
+          button.style.fontWeight = active ? "bold" : "normal";
+          button.style.background = active ? "#dbeafe" : "";
+        };
+        setActive(cameraDriverBtn, showDriver && !objectiveViewMain);
+        setActive(cameraFollowBtn, objectiveViewMain && mode === "follow");
+        setActive(cameraOverviewBtn, objectiveViewMain && mode === "overview");
+        if (followCheckbox && (mode === "follow" || mode === "fixed" || mode === "overview")) {
+          followCheckbox.checked = mode === "follow";
         }
       }
       function applyFollowSelectedIfEnabled() {
@@ -862,9 +897,31 @@
           viewer.setFollowSelectedEnabled(enabled);
           if (enabled) {
             applyFollowSelectedIfEnabled();
+            showCameraMode("follow");
           }
         });
       }
+      cameraDriverBtn?.addEventListener("click", () => {
+        viewer.setObjectiveViewMain(false);
+      });
+      cameraFollowBtn?.addEventListener("click", () => {
+        viewer.setObjectiveViewMain(true);
+        if (followCheckbox) followCheckbox.checked = true;
+        viewer.setFollowSelectedEnabled(true);
+        applyFollowSelectedIfEnabled();
+        showCameraMode("follow");
+      });
+      cameraOverviewBtn?.addEventListener("click", () => {
+        viewer.setObjectiveViewMain(true);
+        if (followCheckbox) followCheckbox.checked = false;
+        viewer.setOverviewEnabled(true);
+        showCameraMode("overview");
+      });
+      window.addEventListener("hakoniwa-camera-mode-change", (event) => {
+        showCameraMode(event.detail?.mode, event.detail);
+      });
+      const initialCameraView = viewer.getCameraViewState();
+      showCameraMode(initialCameraView.mode, initialCameraView);
 
       if (faultSendBtn) {
         faultSendBtn.addEventListener("click", async () => {
