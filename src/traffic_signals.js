@@ -1,4 +1,4 @@
-// Traffic signal lamps from the simulation (hakoniwa-scenario M3-2). esmini runs the signals;
+// Traffic signal lamps from the simulation (hakoniwa-scenario-pro M3-2). esmini runs the signals;
 // the scenario asset writes each signal's lamps to its own PDU, std_msgs/UInt32 with bit i =
 // lamp i from the top lit. This lights the lamps of the world part named
 // "signal-<road>-<id>" (Environment Studio's traffic signal, placed from OpenDRIVE): its
