@@ -30,7 +30,7 @@ class StaticViewerContractTest(unittest.TestCase):
                     self.assertTrue(target.is_file(), f"{path.name}: missing {section}.{key} target {value}")
 
     def test_traffic_signal_lamps_are_wired(self) -> None:
-        # hakoniwa-scenario M3-2: one std_msgs/UInt32 PDU per signal lights the lamps of the
+        # hakoniwa-scenario-pro M3-2: one std_msgs/UInt32 PDU per signal lights the lamps of the
         # world part "signal-<road>-<id>".
         source = (ROOT / "src/traffic_signals.js").read_text(encoding="utf-8")
         for marker in ("export class TrafficSignals", "pduToJs_UInt32", 'name.startsWith("signal-")'):
