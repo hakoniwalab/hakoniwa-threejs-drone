@@ -324,6 +324,59 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("motorChannels: input.motorChannels", factory)
         self.assertIn("applyModelScale(rotorModelEnt", (ROOT / "src/drone.js").read_text(encoding="utf-8"))
 
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_eams_hexa_disturb_config_and_rotor_controls(self) -> None:
+        base = json.loads(
+            (ROOT / "config/viewer-config-fleets-hexa-eams.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        disturb = json.loads(
+            (ROOT / "config/viewer-config-fleets-hexa-eams-disturb.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(disturb["three"], base["three"])
+        self.assertEqual(disturb["ui"], base["ui"])
+        self.assertEqual(disturb["stateInput"], base["stateInput"])
+        self.assertEqual(disturb["pdu"]["pduDefPath"], "./pdudef-disturb.json")
+        self.assertEqual(
+            disturb["faultInjection"],
+            {"robotName": "Drone", "rotorCount": 6},
+        )
+
+        pdu_def = json.loads(
+            (ROOT / "config/pdudef-disturb.json").read_text(encoding="utf-8")
+        )
+        drone = next(robot for robot in pdu_def["robots"] if robot["name"] == "Drone")
+        pdu_types_path = next(
+            item["path"] for item in pdu_def["paths"]
+            if item["id"] == drone["pdutypes_id"]
+        )
+        pdu_types = json.loads(
+            (ROOT / "config" / pdu_types_path).read_text(encoding="utf-8")
+        )
+        self.assertTrue(any(
+            pdu["name"] == "disturb" and pdu["type"] == "hako_msgs/Disturbance"
+            for pdu in pdu_types
+        ))
+
+        index = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("configureRotorControls(config.faultInjection?.rotorCount ?? 4)", index)
+        self.assertIn("buildRotorScaleControls(count)", index)
+        self.assertIn("buildPwmRows(count)", index)
+
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/rotor_controls_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertEqual(
+            json.loads(output),
+            {"defaultRotorCount": 4, "eamsRotorCount": 6},
+        )
+
     def test_night_show_preserves_word_readability(self) -> None:
         source = (ROOT / "src/app.js").read_text(encoding="utf-8")
         for marker in (

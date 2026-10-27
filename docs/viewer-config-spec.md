@@ -20,6 +20,7 @@ v1.0 では以下を外部仕様にします。
 
 1. `viewer_config` ファイルは `config/` 直下に配置する  
    - 例: `config/viewer-config-legacy.json`, `config/viewer-config-fleets.json`
+   - EAMS 6発機で風・ローター故障入力を使う例: `config/viewer-config-fleets-hexa-eams-disturb.json`
 2. `DroneViewer` は上位から渡された設定を使用する  
    - `DroneViewer` 自身は設定ファイルパスを固定しない
    - 上位アプリが「どの設定ファイルを使うか」を決定する

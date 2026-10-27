@@ -263,35 +263,18 @@
       <div class="prop-box drone-only">
         <h4>Drone State (debug)</h4>
         <table class="prop-table">
-          <tr><td class="label">x:</td><td class="value" id="prop-x"></td></tr>
-          <tr><td class="label">y:</td><td class="value" id="prop-y"></td></tr>
-          <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
-          <tr><td class="label">pwm0:</td><td class="value" id="prop-pwm-0"></td></tr>
-          <tr><td class="label">pwm1:</td><td class="value" id="prop-pwm-1"></td></tr>
-          <tr><td class="label">pwm2:</td><td class="value" id="prop-pwm-2"></td></tr>
-          <tr><td class="label">pwm3:</td><td class="value" id="prop-pwm-3"></td></tr>
+          <tbody>
+            <tr><td class="label">x:</td><td class="value" id="prop-x"></td></tr>
+            <tr><td class="label">y:</td><td class="value" id="prop-y"></td></tr>
+            <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
+          </tbody>
+          <tbody id="pwm-state-rows"></tbody>
         </table>
       </div>
 
       <div class="prop-box drone-only">
         <h4>Rotor Fault Injection</h4>
-        <div class="fault-grid">
-          <label for="rotor-scale-0">Rotor 0</label>
-          <input id="rotor-scale-slider-0" type="range" min="0" max="1" step="0.1" value="1.0">
-          <input id="rotor-scale-0" type="number" min="0" max="1" step="0.1" value="1.0">
-
-          <label for="rotor-scale-1">Rotor 1</label>
-          <input id="rotor-scale-slider-1" type="range" min="0" max="1" step="0.1" value="1.0">
-          <input id="rotor-scale-1" type="number" min="0" max="1" step="0.1" value="1.0">
-
-          <label for="rotor-scale-2">Rotor 2</label>
-          <input id="rotor-scale-slider-2" type="range" min="0" max="1" step="0.1" value="1.0">
-          <input id="rotor-scale-2" type="number" min="0" max="1" step="0.1" value="1.0">
-
-          <label for="rotor-scale-3">Rotor 3</label>
-          <input id="rotor-scale-slider-3" type="range" min="0" max="1" step="0.1" value="1.0">
-          <input id="rotor-scale-3" type="number" min="0" max="1" step="0.1" value="1.0">
-        </div>
+        <div id="rotor-scale-controls" class="fault-grid"></div>
         <div class="fault-actions">
           <button id="fault-send-btn" type="button">send</button>
           <button id="fault-reset-btn" type="button">reset</button>
@@ -345,6 +328,11 @@
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
     import { ScenarioPanel, validateScenarioPanel } from "./src/scenario_panel.js";
     import { TrafficSignals } from "./src/traffic_signals.js";
+    import {
+      buildPwmRows,
+      buildRotorScaleControls,
+      normalizeRotorCount,
+    } from "./src/fault_injection/rotor_controls.js";
 
     const viewer = createDroneViewer();
     window.droneViewer = viewer;
@@ -370,24 +358,11 @@
       const stateX = document.getElementById('prop-x');
       const stateY = document.getElementById('prop-y');
       const stateZ = document.getElementById('prop-z');
-      const statePwmDuty = [
-        document.getElementById('prop-pwm-0'),
-        document.getElementById('prop-pwm-1'),
-        document.getElementById('prop-pwm-2'),
-        document.getElementById('prop-pwm-3'),
-      ];
-      const rotorScaleInputs = [
-        document.getElementById('rotor-scale-0'),
-        document.getElementById('rotor-scale-1'),
-        document.getElementById('rotor-scale-2'),
-        document.getElementById('rotor-scale-3'),
-      ];
-      const rotorScaleSliders = [
-        document.getElementById('rotor-scale-slider-0'),
-        document.getElementById('rotor-scale-slider-1'),
-        document.getElementById('rotor-scale-slider-2'),
-        document.getElementById('rotor-scale-slider-3'),
-      ];
+      const pwmStateRows = document.getElementById('pwm-state-rows');
+      const rotorScaleControls = document.getElementById('rotor-scale-controls');
+      let statePwmDuty = [];
+      let rotorScaleInputs = [];
+      let rotorScaleSliders = [];
       const faultSendBtn = document.getElementById('fault-send-btn');
       const faultResetBtn = document.getElementById('fault-reset-btn');
       const faultStatus = document.getElementById('fault-status');
@@ -527,6 +502,24 @@
             });
           }
         });
+      }
+
+      function configureRotorControls(rotorCount = 4) {
+        const count = normalizeRotorCount(rotorCount);
+        if (pwmStateRows) {
+          pwmStateRows.innerHTML = buildPwmRows(count);
+        }
+        if (rotorScaleControls) {
+          rotorScaleControls.innerHTML = buildRotorScaleControls(count);
+        }
+        statePwmDuty = Array.from({ length: count }, (_, index) =>
+          document.getElementById(`prop-pwm-${index}`));
+        rotorScaleInputs = Array.from({ length: count }, (_, index) =>
+          document.getElementById(`rotor-scale-${index}`));
+        rotorScaleSliders = Array.from({ length: count }, (_, index) =>
+          document.getElementById(`rotor-scale-slider-${index}`));
+        setRotorScalesToInputs(viewer.getRotorFaultScales());
+        bindRotorScaleControls();
       }
 
       function bindWindControls() {
@@ -719,9 +712,8 @@
         });
       }
 
-      setRotorScalesToInputs(viewer.getRotorFaultScales());
+      configureRotorControls();
       setWindToInputs(viewer.getWind());
-      bindRotorScaleControls();
       bindWindControls();
       setFaultStatus("not sent");
       setWindStatus("not sent");
@@ -737,6 +729,7 @@
           loadedViewerConfig = config;
           statePanelIntervalMsec = config.ui?.statePanelIntervalMsec ?? 100;
           viewer.configure(config);
+          configureRotorControls(config.faultInjection?.rotorCount ?? 4);
           if (wsUriInput) {
             wsUriInput.value = config.pdu.wsUri;
           }
