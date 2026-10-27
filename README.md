@@ -127,6 +127,9 @@ http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-legacy.j
 
 # fleets
 http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets.json
+
+# EAMS 6発機（風・ローター故障入力対応）
+http://127.0.0.1:8000/index.html?viewerConfigPath=/config/viewer-config-fleets-hexa-eams-disturb.json
 ```
 
 URLクエリで次の値も上書きできます。
