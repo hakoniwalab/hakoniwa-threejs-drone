@@ -95,6 +95,9 @@ function validateViewerConfig(config) {
     if (!hasRobotName && !hasRobotNames) {
       throw new Error("[DroneViewer] faultInjection.robotName or robotNames is required.");
     }
+    if (fault.robotName != null && !hasRobotName) {
+      throw new Error("[DroneViewer] faultInjection.robotName must be a non-empty string.");
+    }
     if (fault.robotNames != null && !hasRobotNames) {
       throw new Error("[DroneViewer] faultInjection.robotNames must contain unique non-empty strings.");
     }

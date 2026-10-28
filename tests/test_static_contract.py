@@ -495,6 +495,19 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("setRotorScalesToInputs(viewer.getRotorFaultScales())", page)
         self.assertIn("setWindToInputs(viewer.getWind())", page)
 
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_viewer_config_validator_accepts_single_and_multi_drone_fault_targets(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/viewer_config_validation_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertEqual(
+            json.loads(output),
+            {"multiDrone": True, "singleDrone": True, "invalidCases": 6},
+        )
+
     def test_planned_flight_paths_are_an_optional_overlay(self) -> None:
         schema = json.loads(
             (ROOT / "config/schema/viewer-config.schema.json").read_text(

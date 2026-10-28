@@ -131,7 +131,8 @@ export function mountFaultPanel(container, viewer) {
   const status = element("div", { style: "min-height:1.2em;font-size:12px" });
   const reset = element("button", { type: "button" }, "reset");
   const heading = windCompass(() => send());
-  const title = element("h4", {}, `Fault Injection (${fault.robotName})`);
+  const initialRobotName = fault.robotName ?? fault.robotNames?.[0] ?? null;
+  const title = element("h4", {}, `Fault Injection (${initialRobotName ?? "not available"})`);
 
   const panel = element("div", { class: "prop-box hakoniwa-fault-panel" }, [
     title,
@@ -205,6 +206,6 @@ export function mountFaultPanel(container, viewer) {
   });
 
   container.append(panel);
-  if (Array.isArray(fault.robotNames)) selectRobot(fault.robotName);
+  if (Array.isArray(fault.robotNames)) selectRobot(initialRobotName);
   return { element: panel, send, selectRobot };
 }
