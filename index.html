@@ -273,7 +273,7 @@
       </div>
 
       <div class="prop-box drone-only">
-        <h4>Rotor Fault Injection</h4>
+        <h4 id="rotor-fault-heading">Rotor Fault Injection</h4>
         <div id="rotor-scale-controls" class="fault-grid"></div>
         <div class="fault-actions">
           <button id="fault-send-btn" type="button">send</button>
@@ -283,7 +283,7 @@
       </div>
 
       <div class="prop-box drone-only">
-        <h4>Wind Disturbance (ROS)</h4>
+        <h4 id="wind-disturbance-heading">Wind Disturbance (ROS)</h4>
         <div class="fault-grid">
           <label for="wind-heading-deg">Heading</label>
           <div id="wind-heading-compass" class="compass-widget" aria-label="Wind heading compass">
@@ -366,6 +366,8 @@
       const faultSendBtn = document.getElementById('fault-send-btn');
       const faultResetBtn = document.getElementById('fault-reset-btn');
       const faultStatus = document.getElementById('fault-status');
+      const rotorFaultHeading = document.getElementById('rotor-fault-heading');
+      const windDisturbanceHeading = document.getElementById('wind-disturbance-heading');
       const windHeadingCompass = document.getElementById('wind-heading-compass');
       const windHeadingPointer = document.getElementById('wind-heading-pointer');
       const windHeadingInput = document.getElementById('wind-heading-deg');
@@ -520,6 +522,39 @@
           document.getElementById(`rotor-scale-slider-${index}`));
         setRotorScalesToInputs(viewer.getRotorFaultScales());
         bindRotorScaleControls();
+      }
+
+      function updateFaultInjectionTarget() {
+        const fault = viewer.getFaultInjectionConfig();
+        if (!fault || !Array.isArray(fault.robotNames)) return;
+
+        const selectedName = droneSelect?.value;
+        const isDrone = viewer.getDrones().some((drone) => String(drone.droneId) === selectedName);
+        const targetName = viewer.setFaultInjectionTarget(isDrone ? selectedName : null);
+        const enabled = !!targetName;
+        const headingTarget = targetName ?? "not available";
+        if (rotorFaultHeading) rotorFaultHeading.textContent = `Rotor Fault Injection (${headingTarget})`;
+        if (windDisturbanceHeading) windDisturbanceHeading.textContent = `Wind Disturbance (ROS) (${headingTarget})`;
+        for (const control of [
+          ...rotorScaleInputs,
+          ...rotorScaleSliders,
+          faultSendBtn,
+          faultResetBtn,
+          windHeadingInput,
+          windSpeedInput,
+          windSpeedSlider,
+        ]) {
+          if (control) control.disabled = !enabled;
+        }
+        if (!enabled) {
+          setFaultStatus("selected Drone is not an injection target", true);
+          setWindStatus("selected Drone is not an injection target", true);
+          return;
+        }
+        setRotorScalesToInputs(viewer.getRotorFaultScales());
+        setWindToInputs(viewer.getWind());
+        setFaultStatus("not sent");
+        setWindStatus("not sent");
       }
 
       function bindWindControls() {
@@ -740,6 +775,7 @@
             overviewInsetBtn.style.background = "#dbeafe";
           }
           populateDroneSelect();
+          updateFaultInjectionTarget();
           validateScenarioPanel(config.scenarioPanel);
           setupScenarioBox(config);
           // A scene without Drones (cars, people): the Drone controls are not used.
@@ -879,6 +915,7 @@
             await viewer.initDronePdu();
 
             populateDroneSelect();
+            updateFaultInjectionTarget();
             applyFollowSelectedIfEnabled();
             // 100msごとに状態更新
             setInterval(updateDroneStatePanel, statePanelIntervalMsec);
@@ -900,6 +937,7 @@
       if (droneSelect) {
         droneSelect.addEventListener("change", () => {
           applyFollowSelectedIfEnabled();
+          updateFaultInjectionTarget();
         });
       }
       if (followCheckbox) {

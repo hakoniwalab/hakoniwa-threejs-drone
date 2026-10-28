@@ -49,11 +49,11 @@ export class DisturbanceWriter {
     return disturbance;
   }
 
-  async write({ rotorScales = [], wind = {} } = {}) {
+  async write({ robotName = this.robotName, rotorScales = [], wind = {} } = {}) {
     const disturbance = this.buildMessage({ rotorScales, wind });
     const raw = jsToPdu_Disturbance(disturbance);
     return await Hakoniwa.withPdu(async (pdu) => {
-      return await pdu.flush_pdu_raw_data(this.robotName, this.pduName, raw);
+      return await pdu.flush_pdu_raw_data(robotName, this.pduName, raw);
     });
   }
 }

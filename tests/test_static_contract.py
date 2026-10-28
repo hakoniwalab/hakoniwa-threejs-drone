@@ -455,14 +455,20 @@ class StaticViewerContractTest(unittest.TestCase):
             )
         )
         fault = schema["properties"]["faultInjection"]
-        self.assertEqual(fault["required"], ["robotName", "rotorCount"])
+        self.assertEqual(fault["required"], ["rotorCount"])
+        self.assertEqual(
+            fault["anyOf"],
+            [{"required": ["robotName"]}, {"required": ["robotNames"]}],
+        )
+        self.assertTrue(fault["properties"]["robotNames"]["uniqueItems"])
         # The Drone service decodes at most 16 rotor scales.
         self.assertEqual(fault["properties"]["rotorCount"]["maximum"], 16)
         self.assertEqual(fault["properties"]["pduName"]["default"], "disturb")
         viewer = (ROOT / "src/public/drone_viewer.js").read_text(encoding="utf-8")
         self.assertIn("getFaultInjectionConfig()", viewer)
-        self.assertIn("new FaultInjectionState({ rotorCount: fault.rotorCount })", viewer)
-        self.assertIn("robotName: fault.robotName", viewer)
+        self.assertIn("new FaultInjectionTargetStates(fault)", viewer)
+        self.assertIn("setFaultInjectionTarget(robotName)", viewer)
+        self.assertIn("robotName: fault.robotName ?? fault.robotNames[0]", viewer)
         panel = (ROOT / "src/fault_injection/fault_panel.js").read_text(encoding="utf-8")
         self.assertIn("export function mountFaultPanel(container, viewer)", panel)
         self.assertIn("length: fault.rotorCount", panel)
@@ -473,6 +479,34 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertIn("rotate(${-90 - headingDeg}deg)", panel)
         index = (ROOT / "src/index.js").read_text(encoding="utf-8")
         self.assertIn("mountFaultPanel", index)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_fault_injection_targets_keep_independent_values(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/fault_injection_targets_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertEqual(json.loads(output), {"targets": 2, "rotorCount": 3})
+        page = (ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn("updateFaultInjectionTarget()", page)
+        self.assertIn("viewer.setFaultInjectionTarget(isDrone ? selectedName : null)", page)
+        self.assertIn("setRotorScalesToInputs(viewer.getRotorFaultScales())", page)
+        self.assertIn("setWindToInputs(viewer.getWind())", page)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_viewer_config_validator_accepts_single_and_multi_drone_fault_targets(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/viewer_config_validation_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertEqual(
+            json.loads(output),
+            {"multiDrone": True, "singleDrone": True, "invalidCases": 6},
+        )
 
     def test_planned_flight_paths_are_an_optional_overlay(self) -> None:
         schema = json.loads(

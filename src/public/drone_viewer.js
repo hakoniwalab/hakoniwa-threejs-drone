@@ -3,6 +3,7 @@ import { Hakoniwa } from "../hakoniwa/hakoniwa-pdu.js";
 import { StateSourceFactory } from "../state_source/state_source_factory.js";
 import { DroneRenderManager } from "./drone_render_manager.js";
 import { FaultInjectionState } from "../fault_injection/fault_injection_state.js";
+import { FaultInjectionTargetStates } from "../fault_injection/fault_injection_targets.js";
 import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
 import { buildFlightPathGroup, validateFlightPaths, validateRoutePaths } from "../flight_path.js";
@@ -86,8 +87,19 @@ function validateViewerConfig(config) {
   }
   const fault = config.faultInjection;
   if (fault != null) {
-    if (typeof fault.robotName !== "string" || fault.robotName.length === 0) {
-      throw new Error("[DroneViewer] faultInjection.robotName is required.");
+    const hasRobotName = typeof fault.robotName === "string" && fault.robotName.length > 0;
+    const hasRobotNames = Array.isArray(fault.robotNames)
+      && fault.robotNames.length > 0
+      && fault.robotNames.every((name) => typeof name === "string" && name.length > 0)
+      && new Set(fault.robotNames).size === fault.robotNames.length;
+    if (!hasRobotName && !hasRobotNames) {
+      throw new Error("[DroneViewer] faultInjection.robotName or robotNames is required.");
+    }
+    if (fault.robotName != null && !hasRobotName) {
+      throw new Error("[DroneViewer] faultInjection.robotName must be a non-empty string.");
+    }
+    if (fault.robotNames != null && !hasRobotNames) {
+      throw new Error("[DroneViewer] faultInjection.robotNames must contain unique non-empty strings.");
     }
     if (fault.pduName != null && (typeof fault.pduName !== "string" || fault.pduName.length === 0)) {
       throw new Error("[DroneViewer] faultInjection.pduName must be a non-empty string.");
@@ -195,6 +207,7 @@ export class DroneViewer {
     this.vehicleStateSource = null;
     this.renderManager = null;
     this.faultInjectionState = new FaultInjectionState();
+    this.faultInjectionTargetStates = null;
     this.flightPathGroup = null;
     this.trails = null;
     this.disturbanceWriter = new DisturbanceWriter();
@@ -211,9 +224,11 @@ export class DroneViewer {
     this.viewerConfig = deepClone(partialConfig);
     const fault = this.viewerConfig.faultInjection;
     if (fault) {
-      this.faultInjectionState = new FaultInjectionState({ rotorCount: fault.rotorCount });
+      this.faultInjectionTargetStates = new FaultInjectionTargetStates(fault);
+      this.faultInjectionState = this.faultInjectionTargetStates.getState()
+        ?? new FaultInjectionState({ rotorCount: fault.rotorCount });
       this.disturbanceWriter = new DisturbanceWriter({
-        robotName: fault.robotName,
+        robotName: fault.robotName ?? fault.robotNames[0],
         pduName: fault.pduName ?? "disturb",
       });
     }
@@ -224,10 +239,27 @@ export class DroneViewer {
     const fault = this.viewerConfig?.faultInjection;
     if (!fault) return null;
     return {
-      robotName: fault.robotName,
+      robotName: this.getFaultInjectionTargetName(),
+      ...(Array.isArray(fault.robotNames) ? { robotNames: [...fault.robotNames] } : {}),
       pduName: fault.pduName ?? "disturb",
       rotorCount: fault.rotorCount,
     };
+  }
+
+  /** Select a target in robotNames mode. Fixed robotName configurations ignore the selection. */
+  setFaultInjectionTarget(robotName) {
+    if (!this.faultInjectionTargetStates) return null;
+    const target = this.faultInjectionTargetStates.select(robotName);
+    const state = this.faultInjectionTargetStates.getState();
+    this.faultInjectionState = state
+      ?? new FaultInjectionState({
+        rotorCount: this.viewerConfig.faultInjection.rotorCount,
+      });
+    return target;
+  }
+
+  getFaultInjectionTargetName() {
+    return this.faultInjectionTargetStates?.getTargetName() ?? null;
   }
 
   getViewerConfig() {
@@ -622,10 +654,13 @@ export class DroneViewer {
   }
 
   async sendRotorFaultScales(scales = null) {
+    const robotName = this.getFaultInjectionTargetName();
+    if (!robotName) return false;
     const effectiveScales = Array.isArray(scales)
       ? this.faultInjectionState.setRotorScales(scales)
       : this.faultInjectionState.getRotorScales();
     return await this.disturbanceWriter.write({
+      robotName,
       rotorScales: effectiveScales,
       wind: this.faultInjectionState.getWind(),
     });
@@ -648,7 +683,10 @@ export class DroneViewer {
   }
 
   async sendCurrentDisturbance() {
+    const robotName = this.getFaultInjectionTargetName();
+    if (!robotName) return false;
     return await this.disturbanceWriter.write({
+      robotName,
       rotorScales: this.faultInjectionState.getRotorScales(),
       wind: this.faultInjectionState.getWind(),
     });

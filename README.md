@@ -251,7 +251,7 @@ Scene設定のenvironmentへ`"type": "fpv-course"`を明示した場合だけ、
 
 機体instanceのoptionalな`scale`では、既存GLB、ローター、搭載カメラを一体で拡大縮小できます。PDUのworld位置はスケールしません。`type`と`scale`を省略した既存scene設定の動作は変わりません。
 
-Viewer設定のoptionalな`faultInjection`（`robotName`、`rotorCount`、`pduName`は既定`disturb`）で、ローター故障・風の送信先機体とローター数を指定します。地図などに組み込む画面は`mountFaultPanel(container, viewer)`でローター数分のスライダーを持つパネルを表示できます。省略時は従来どおり`Drone`・4ローターです。
+Viewer設定のoptionalな`faultInjection`（`robotName`、`rotorCount`、`pduName`は既定`disturb`）で、ローター故障・風の送信先機体とローター数を指定します。`robotName`の代わりに`robotNames`を指定すると、Drone selectorで選んだ機体だけへ送り、機体ごとのローター倍率と風を保持します。地図などに組み込む画面は`mountFaultPanel(container, viewer)`でローター数分のスライダーを持つパネルを表示でき、返り値の`selectRobot(name)`で対象を切り替えられます。省略時は従来どおり`Drone`・4ローターです。
 
 Viewer設定で`ui.attachedCameraPresentation: "main"`を明示すると、最初の機体attached cameraを全面表示し、従来のOrbit cameraを左上PiPへ表示します。`ui.initialMainView: "objective"`なら開始時からOrbit cameraが全面、attached cameraがPiPになります（既定は`"attached"`）。`Tab`または「運転席 / 追従 / 前方 / 全体」で主・副画面を切り替え、`F`でattached cameraのPiPを表示・非表示にできます。`main_camera.initialMode`には`follow` / `fixed` / `overview` / `front`を指定できます。既定値は従来互換の`overlay`、`attached`、`follow`です。
 

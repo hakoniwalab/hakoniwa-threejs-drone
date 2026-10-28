@@ -131,9 +131,11 @@ export function mountFaultPanel(container, viewer) {
   const status = element("div", { style: "min-height:1.2em;font-size:12px" });
   const reset = element("button", { type: "button" }, "reset");
   const heading = windCompass(() => send());
+  const initialRobotName = fault.robotName ?? fault.robotNames?.[0] ?? null;
+  const title = element("h4", {}, `Fault Injection (${initialRobotName ?? "not available"})`);
 
   const panel = element("div", { class: "prop-box hakoniwa-fault-panel" }, [
-    element("h4", {}, `Fault Injection (${fault.robotName})`),
+    title,
     element("div", { style: "display:grid;gap:4px" }, rotors.map((item) => item.row)),
     element("div", { style: "display:grid;gap:4px;margin-top:6px" }, [heading.row, speed.row]),
     element("div", { style: "margin-top:6px" }, reset),
@@ -143,6 +145,31 @@ export function mountFaultPanel(container, viewer) {
   function setStatus(message, isError = false) {
     status.textContent = message;
     status.style.color = isError ? "#b00020" : "";
+  }
+
+  function selectRobot(robotName) {
+    if (!Array.isArray(fault.robotNames)) return fault.robotName;
+    const targetName = viewer.setFaultInjectionTarget(robotName);
+    title.textContent = `Fault Injection (${targetName ?? "not available"})`;
+    const enabled = !!targetName;
+    for (const control of [...rotors.map((item) => item.slider), speed.slider, reset]) {
+      control.disabled = !enabled;
+    }
+    if (!enabled) {
+      setStatus("selected Drone is not an injection target", true);
+      return null;
+    }
+    const scales = viewer.getRotorFaultScales();
+    rotors.forEach((item, index) => {
+      item.slider.value = String(scales[index] ?? 1.0);
+      item.show();
+    });
+    const wind = viewer.getWind();
+    heading.set(wind.headingDeg);
+    speed.slider.value = String(wind.speedMps);
+    speed.show();
+    setStatus("");
+    return targetName;
   }
 
   async function send() {
@@ -179,5 +206,6 @@ export function mountFaultPanel(container, viewer) {
   });
 
   container.append(panel);
-  return { element: panel, send };
+  if (Array.isArray(fault.robotNames)) selectRobot(initialRobotName);
+  return { element: panel, send, selectRobot };
 }
