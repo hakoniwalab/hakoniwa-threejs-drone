@@ -185,6 +185,12 @@
     .drone-only.hidden-for-vehicles {
       display: none;
     }
+    .vehicle-only {
+      display: none;
+    }
+    .vehicle-only.shown-for-vehicles {
+      display: block;
+    }
 
     .scenario-events {
       margin: 6px 0 0;
@@ -269,6 +275,13 @@
             <tr><td class="label">z:</td><td class="value" id="prop-z"></td></tr>
           </tbody>
           <tbody id="pwm-state-rows"></tbody>
+        </table>
+      </div>
+
+      <div class="prop-box vehicle-only" id="vehicle-state-box">
+        <h4>Vehicle State (debug)</h4>
+        <table class="prop-table">
+          <tbody id="vehicle-state-rows"></tbody>
         </table>
       </div>
 
@@ -782,6 +795,9 @@
           if (viewer.getDrones().length === 0) {
             document.querySelectorAll('.drone-only').forEach((element) => element.classList.add('hidden-for-vehicles'));
           }
+          if (viewer.getVehicles().length > 0) {
+            document.querySelectorAll('.vehicle-only').forEach((element) => element.classList.add('shown-for-vehicles'));
+          }
           if (config.pdu?.autoConnect) {
             connectBtn.click();
           }
@@ -856,6 +872,37 @@
         hudPrevious = kmh;
       }
 
+      // The received state of each vehicle: its pose (position [m], roll /
+      // pitch / yaw [deg], ROS axes) when a pose PDU carries it, and its joints [rad].
+      const vehicleStateRows = document.getElementById('vehicle-state-rows');
+      function quaternionToRpyDeg({ x, y, z, w }) {
+        const roll = Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y));
+        const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (w * y - z * x))));
+        const yaw = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z));
+        return [roll, pitch, yaw].map((v) => v * 180 / Math.PI);
+      }
+      function renderVehicleStatePanel() {
+        const source = viewer.vehicleStateSource;
+        if (!source || !vehicleStateRows) return;
+        const fixed = (values, digits) => values.map((v) => Number(v).toFixed(digits)).join(", ");
+        const rows = [];
+        for (const vehicle of viewer.getVehicles()) {
+          const state = source.getState(vehicle.vehicleId);
+          rows.push(`<tr><td class="label" colspan="2"><b>${vehicle.vehicleId}</b></td></tr>`);
+          const t = state?.transform;
+          if (t) {
+            rows.push(`<tr><td class="label">pos:</td><td class="value">${fixed([t.translation.x, t.translation.y, t.translation.z], 3)}</td></tr>`);
+            rows.push(`<tr><td class="label">rpy:</td><td class="value">${fixed(quaternionToRpyDeg(t.rotation), 1)}</td></tr>`);
+          } else {
+            rows.push('<tr><td class="label">pose:</td><td class="value">固定（原点）</td></tr>');
+          }
+          for (const [name, value] of Object.entries(state?.joints ?? {})) {
+            rows.push(`<tr><td class="label">${name}:</td><td class="value">${Number(value).toFixed(3)}</td></tr>`);
+          }
+        }
+        vehicleStateRows.innerHTML = rows.join("");
+      }
+
       function renderVehicleSpeeds() {
         const rows = viewer.getVehicles()
           .filter((vehicle) => vehicle.motion?.speed != null)
@@ -919,6 +966,9 @@
             applyFollowSelectedIfEnabled();
             // 100msごとに状態更新
             setInterval(updateDroneStatePanel, statePanelIntervalMsec);
+            if (viewer.getVehicles().length > 0) {
+              setInterval(renderVehicleStatePanel, statePanelIntervalMsec);
+            }
 
             connectBtn.textContent = "connected";
             await attachScenarioPanel();
