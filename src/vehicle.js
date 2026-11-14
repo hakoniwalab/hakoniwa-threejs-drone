@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { HakoniwaFrame } from "./frame.js";
 import { jointBindingSpec } from "./joint_motion.js";
 import { attachedCameraConfigs } from "./vehicle_camera.js";
+import { renderCamera } from "./viewer_plugins.js";
 
 const gltfCache = new Map();
 
@@ -175,6 +176,7 @@ export class Vehicle {
       camera.quaternion.copy(fluRpyToThreeQuaternion(cameraConfig.rpy ?? [0, 0, 0]));
       this.root.add(camera);
       this.viewCameras.push({
+        name: `${this.vehicleId}/${name}`,
         camera,
         primary,
         viewport: cameraConfig.window ?? {
@@ -267,7 +269,7 @@ export class Vehicle {
     renderer, scene, fullWidth, fullHeight, { includePrimary = true } = {},
   ) {
     for (const {
-      viewport, camera, backgroundColor, borderColor, borderWidthPx, primary,
+      name, viewport, camera, backgroundColor, borderColor, borderWidthPx, primary,
     } of this.viewCameras) {
       if (!includePrimary && primary) continue;
       const vpW = Math.max(1, Math.floor(fullWidth * viewport.width));
@@ -294,7 +296,10 @@ export class Vehicle {
       );
       renderer.setClearColor(backgroundColor, 1.0);
       renderer.clearDepth();
-      renderer.render(scene, camera);
+      renderCamera(renderer, scene, camera, name, {
+        x: vpX + border, y: vpY + border,
+        width: Math.max(1, vpW - border * 2), height: Math.max(1, vpH - border * 2),
+      });
       renderer.setClearColor(previousColor, previousAlpha);
       renderer.setScissorTest(false);
     }
@@ -308,5 +313,15 @@ export class Vehicle {
 
   getPrimaryAttachedCamera() {
     return this.viewCameras[0]?.camera ?? null;
+  }
+
+  // "<vehicle>/<camera>" of the primary camera (viewer plugins draw cameras by this name).
+  getPrimaryAttachedCameraName() {
+    return this.viewCameras[0]?.name ?? null;
+  }
+
+  // The names of all this vehicle's cameras, "<vehicle>/front" first.
+  getAttachedCameraNames() {
+    return this.viewCameras.map((view) => view.name);
   }
 }
