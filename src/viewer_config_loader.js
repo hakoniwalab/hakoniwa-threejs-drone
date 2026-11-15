@@ -1,3 +1,5 @@
+import { validatePlugins } from "./viewer_plugins.js";
+
 export const DEFAULT_VIEWER_CONFIG_PATH = "/config/viewer-config-legacy.json";
 
 function resolvePathFromConfig(pathValue, configUrl) {
@@ -143,6 +145,7 @@ function validateViewerConfigShape(cfg, configUrl) {
   if (!cfg.pdu?.pduDefPath) {
     throw new Error(`[ViewerConfigLoader] pdu.pduDefPath is required: ${configUrl}`);
   }
+  validatePlugins(cfg.plugins, configUrl);
   const stateOptions = cfg.stateInput?.[cfg.stateInput?.mode];
   if (stateOptions?.motorChannels != null) {
     const channels = stateOptions.motorChannels;
@@ -162,6 +165,9 @@ function normalizeViewerConfigPaths(cfg, configUrl) {
   const normalized = JSON.parse(JSON.stringify(cfg));
   normalized.three.sceneConfigPath = resolvePathFromConfig(normalized.three.sceneConfigPath, configUrl);
   normalized.pdu.pduDefPath = resolvePathFromConfig(normalized.pdu.pduDefPath, configUrl);
+  for (const plugin of normalized.plugins ?? []) {
+    plugin.module = resolvePathFromConfig(plugin.module, configUrl);
+  }
   return normalized;
 }
 

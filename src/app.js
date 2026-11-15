@@ -8,6 +8,7 @@ import { AudienceCamera } from "./audience_camera.js";
 import { buildEnvironments } from './environment.js';
 import { Drone } from "./drone.js";
 import { Vehicle } from "./vehicle.js";
+import { renderCamera } from "./viewer_plugins.js";
 
 console.log("[Hakoniwa] app.js loaded");
 
@@ -845,11 +846,13 @@ function animate() {
       && attachedCamera
       && !attachedCameraSwapped;
     const mainCamera = fpvMain ? attachedCamera : orbitCam.camera;
+    // A viewer plugin may draw the subjective camera (viewer_plugins.js); the objective one is the viewer's.
+    const attachedCameraName = attachedCamera ? selectedEntity.getPrimaryAttachedCameraName?.() ?? null : null;
     mainCamera.aspect = w / h;
     mainCamera.updateProjectionMatrix();
     renderer.setViewport(0, 0, w, h);
     renderer.setScissorTest(false);
-    renderer.render(scene, mainCamera);
+    renderCamera(renderer, scene, mainCamera, fpvMain ? attachedCameraName : null, { x: 0, y: 0, width: w, height: h });
 
     if (runtimeOptions.attachedCameraPresentation === "main" && attachedCamera) {
       if (attachedCameraPipVisible) {
@@ -864,7 +867,8 @@ function animate() {
         renderer.setViewport(pipX, pipY, pipW, pipH);
         renderer.setScissor(pipX, pipY, pipW, pipH);
         renderer.clearDepth();
-        renderer.render(scene, pipCamera);
+        renderCamera(renderer, scene, pipCamera, fpvMain ? null : attachedCameraName,
+          { x: pipX, y: pipY, width: pipW, height: pipH });
         renderer.setScissorTest(false);
         selectedEntity.renderExtraAttachedCameras?.(renderer, scene, w, h);
       }

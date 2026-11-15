@@ -209,6 +209,17 @@ class StaticViewerContractTest(unittest.TestCase):
         self.assertFalse(result["cameras"][1]["primary"])
         self.assertTrue(result["rejectedUnnamed"])
 
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_viewer_plugins_draw_named_cameras_only(self) -> None:
+        # viewerConfig.plugins: without a plugin renderer every camera is drawn as before.
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/viewer_plugins_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertTrue(json.loads(output)["ok"])
+
     def test_javascript_pdu_submodule_is_initialized(self) -> None:
         for relative in (
             "thirdparty/hakoniwa-pdu-javascript/src/PduManager.js",

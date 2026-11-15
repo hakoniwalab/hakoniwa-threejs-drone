@@ -8,6 +8,7 @@ import { DisturbanceWriter } from "../fault_injection/disturbance_writer.js";
 import { VehicleStateSource } from "../state_source/vehicle_state_source.js";
 import { buildFlightPathGroup, validateFlightPaths, validateRoutePaths } from "../flight_path.js";
 import { pinnedTrailsStorageKey, TrailRecorder } from "../trail.js";
+import { cameraRendererNames, loadViewerPlugins, removeCameraRenderer, setCameraRenderer } from "../viewer_plugins.js";
 
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -310,8 +311,20 @@ export class DroneViewer {
       });
       this.syncHookInstalled = true;
     }
+    // Viewer plugins (viewerConfig.plugins), once the scene and its cameras exist.
+    this.loadedPlugins = await loadViewerPlugins(this.viewerConfig?.plugins, this.pluginApi());
     this.initialized = true;
     return true;
+  }
+
+  // What a viewer plugin may use (viewer_plugins.js): draw named cameras, list them.
+  pluginApi() {
+    return {
+      setCameraRenderer,
+      removeCameraRenderer,
+      cameraRendererNames,
+      cameraNames: () => getVehicles().flatMap((vehicle) => vehicle.getAttachedCameraNames?.() ?? []),
+    };
   }
 
   async connectPdu({
