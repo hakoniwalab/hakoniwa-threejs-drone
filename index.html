@@ -21,6 +21,7 @@
     }
 
     #panel {
+      flex: 0 0 auto;     /* its width is the splitter's (src/panel_splitter.js), never squeezed */
       width: 260px;
       background-color: #f0f0f0;
       padding: 10px;
@@ -63,9 +64,19 @@
 
     #viewer-container {
       flex: 1;
+      min-width: 0;       /* may shrink below the canvas's last size; the canvas follows */
+      overflow: hidden;
       background: #000;
       position: relative;
     }
+
+    #panel-splitter {
+      flex: 0 0 6px;
+      cursor: col-resize;
+      background: #d4d4d4;
+      touch-action: none;
+    }
+    #panel-splitter:hover { background: #93c5fd; }
 
     #three-root {
       width: 100%;
@@ -192,6 +203,36 @@
       display: block;
     }
 
+    /* The condition on its own line (labels can be long), then the start button and the status. */
+    .scenario-controls {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 6px 8px;
+      margin-top: 8px;
+    }
+    .scenario-controls select {
+      grid-column: 1 / -1;
+      width: 100%;
+      min-width: 0;
+      font-size: 13px;
+      padding: 3px 4px;
+    }
+    #panel .scenario-controls button {
+      white-space: nowrap;
+    }
+    #scenario-status {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      color: #333;
+    }
+    #scenario-speeds td {
+      white-space: nowrap;
+    }
+
     .scenario-events {
       margin: 6px 0 0;
       padding-left: 18px;
@@ -220,10 +261,10 @@
 
       <div class="prop-box" id="scenario-box" hidden>
         <h4>シナリオ</h4>
-        <div class="fault-actions">
+        <div class="scenario-controls">
           <select id="scenario-variant" hidden></select>
           <button id="scenario-start-btn" type="button" disabled>スタート</button>
-          <span id="scenario-status" class="fault-status">接続中</span>
+          <span id="scenario-status">接続中</span>
         </div>
         <div style="margin-top: 6px;">
           <label><input type="checkbox" id="scenario-night"> 夜</label>
@@ -317,6 +358,8 @@
       </div>
     </div>
 
+    <div id="panel-splitter" role="separator" aria-orientation="vertical"></div>
+
     <!-- 右：Three.js -->
     <div id="viewer-container">
       <div id="scenario-hud" hidden><div id="hud-speed">0 <span>km/h</span></div><div id="hud-acc"></div></div>
@@ -341,6 +384,8 @@
     import { loadViewerConfig } from "./src/viewer_config_loader.js";
     import { ScenarioPanel, validateScenarioPanel } from "./src/scenario_panel.js";
     import { TrafficSignals } from "./src/traffic_signals.js";
+    import { attachPanelSplitter } from "./src/panel_splitter.js";
+    attachPanelSplitter(document.getElementById("panel"), document.getElementById("panel-splitter"));
     import {
       buildPwmRows,
       buildRotorScaleControls,
