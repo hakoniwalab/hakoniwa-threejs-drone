@@ -220,6 +220,16 @@ class StaticViewerContractTest(unittest.TestCase):
         ).stdout
         self.assertTrue(json.loads(output)["ok"])
 
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_panel_width_is_kept_within_the_window(self) -> None:
+        output = subprocess.run(
+            ["node", str(ROOT / "tests/js/panel_splitter_check.mjs")],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertTrue(json.loads(output)["ok"])
+
     def test_javascript_pdu_submodule_is_initialized(self) -> None:
         for relative in (
             "thirdparty/hakoniwa-pdu-javascript/src/PduManager.js",

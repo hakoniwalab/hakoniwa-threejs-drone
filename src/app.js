@@ -902,15 +902,21 @@ function animate() {
 // -------------------------------------------------------------
 //  events
 // -------------------------------------------------------------
-window.addEventListener("resize", () => {
+function resizeToContainer() {
   const w = container.clientWidth;
   const h = container.clientHeight;
+  if (w === 0 || h === 0) return;
   renderer.setSize(w, h);
 
   if (orbitCam) {
     orbitCam.resize(w, h);
   }
-});
+}
+window.addEventListener("resize", resizeToContainer);
+// The view also changes size without the window (the panel's splitter, a folded panel).
+if (typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(resizeToContainer).observe(container);
+}
 
 window.addEventListener("keydown", (e) => {
   if (!e.repeat && e.code === "KeyV" && runtimeOptions.enableAttachedCameras) {
